@@ -11,6 +11,6 @@ What is Atlassian Bamboo™?
 -------------------------
 Bamboo is a commercial build server like Jenkins. It can be extended by plug-ins.
 
-What does this plug-in does?
+What does this plug-in do?
 ----------------------------
 This plug-in enables the user to create a deploy task in a deployment job that will upload built artifacts to Package Drone™
