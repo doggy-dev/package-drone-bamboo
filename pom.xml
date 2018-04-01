@@ -1,7 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (c) 2018 Veselin Markov. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.gemtec</groupId>
@@ -30,164 +46,279 @@
 	</issueManagement>
 	<inceptionYear>2018</inceptionYear>
 
-    <properties>
-        <bamboo.version>6.3.2</bamboo.version>
-        <bamboo.data.version>6.3.2</bamboo.data.version>
-        <amps.version>6.3.15</amps.version>
-        <plugin.testrunner.version>1.2.3</plugin.testrunner.version>
-        <atlassian.spring.scanner.version>1.2.13</atlassian.spring.scanner.version>
-        <!-- This key is used to keep the consistency between the key in atlassian-plugin.xml and the key to generate bundle. -->
-        <atlassian.plugin.key>${project.groupId}.${project.artifactId}</atlassian.plugin.key>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <localrepoPath>C:\Applications\Atlassian\atlassian-plugin-sdk-6.3.10\repository</localrepoPath>
-    </properties>
+	<properties>
+		<bamboo.version>6.3.2</bamboo.version>
+		<bamboo.data.version>6.3.2</bamboo.data.version>
+		<amps.version>6.3.15</amps.version>
+		<plugin.testrunner.version>1.2.3</plugin.testrunner.version>
+		<atlassian.spring.scanner.version>1.2.13</atlassian.spring.scanner.version>
+		<!-- This key is used to keep the consistency between the key in atlassian-plugin.xml 
+			and the key to generate bundle. -->
+		<atlassian.plugin.key>${project.groupId}.${project.artifactId}</atlassian.plugin.key>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<localrepoPath>C:\Applications\Atlassian\atlassian-plugin-sdk-6.3.10\repository</localrepoPath>
+	</properties>
 
 	<repositories>
 		<repository>
-        	<id>Local Atlassian SDK Installation</id>
-       		<url>file://${localrepoPath}</url>
+			<id>Local Atlassian SDK Installation</id>
+			<url>file://${localrepoPath}</url>
 		</repository>
 		<repository>
-        	<id>Atlassian1</id>
-       		<url>https://maven.atlassian.com/content/repositories/atlassian-public/</url>
+			<id>Atlassian1</id>
+			<url>https://maven.atlassian.com/content/repositories/atlassian-public/</url>
 		</repository>
 		<repository>
-        	<id>Atlassian2</id>
-       		<url>https://maven.atlassian.com/repository/public</url>
+			<id>Atlassian2</id>
+			<url>https://maven.atlassian.com/repository/public</url>
 		</repository>
 	</repositories>
-	
+
 	<pluginRepositories>
 		<pluginRepository>
 			<id>Local Atlassian SDK Installation - plugins</id>
 			<url>file://${localrepoPath}</url>
 		</pluginRepository>
 		<pluginRepository>
-        	<id>Atlassian Plugins1</id>
-       		<url>https://maven.atlassian.com/content/repositories/atlassian-public/</url>
+			<id>Atlassian Plugins1</id>
+			<url>https://maven.atlassian.com/content/repositories/atlassian-public/</url>
 		</pluginRepository>
 		<pluginRepository>
-        	<id>Atlassian Plugins2</id>
-       		<url>https://maven.atlassian.com/repository/public</url>
+			<id>Atlassian Plugins2</id>
+			<url>https://maven.atlassian.com/repository/public</url>
 		</pluginRepository>
 	</pluginRepositories>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.atlassian.bamboo</groupId>
-            <artifactId>atlassian-bamboo-web</artifactId>
-            <version>${bamboo.version}</version>
-            <scope>provided</scope>
-        </dependency>
+	<dependencies>
+		<dependency>
+			<groupId>com.atlassian.bamboo</groupId>
+			<artifactId>atlassian-bamboo-web</artifactId>
+			<version>${bamboo.version}</version>
+			<scope>provided</scope>
+		</dependency>
 
-        <dependency>
-            <groupId>com.atlassian.plugin</groupId>
-            <artifactId>atlassian-spring-scanner-annotation</artifactId>
-            <version>${atlassian.spring.scanner.version}</version>
-            <scope>compile</scope>
-        </dependency>
+		<dependency>
+			<groupId>com.atlassian.plugin</groupId>
+			<artifactId>atlassian-spring-scanner-annotation</artifactId>
+			<version>${atlassian.spring.scanner.version}</version>
+			<scope>compile</scope>
+		</dependency>
 
-        <dependency>
-            <groupId>com.atlassian.plugin</groupId>
-            <artifactId>atlassian-spring-scanner-runtime</artifactId>
-            <version>${atlassian.spring.scanner.version}</version>
-            <scope>runtime</scope>
-        </dependency>
+		<dependency>
+			<groupId>com.atlassian.plugin</groupId>
+			<artifactId>atlassian-spring-scanner-runtime</artifactId>
+			<version>${atlassian.spring.scanner.version}</version>
+			<scope>runtime</scope>
+		</dependency>
 
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <version>1</version>
-            <scope>provided</scope>
-        </dependency>
-        
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.10</version>
-            <scope>test</scope>
-        </dependency>
+		<dependency>
+			<groupId>javax.inject</groupId>
+			<artifactId>javax.inject</artifactId>
+			<version>1</version>
+			<scope>provided</scope>
+		</dependency>
 
-        <!-- WIRED TEST RUNNER DEPENDENCIES -->
-        <dependency>
-            <groupId>com.atlassian.plugins</groupId>
-            <artifactId>atlassian-plugins-osgi-testrunner</artifactId>
-            <version>${plugin.testrunner.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>jsr311-api</artifactId>
-            <version>1.1.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.2.2-atlassian-1</version>
-        </dependency>
-    </dependencies>
+		<!-- https://mvnrepository.com/artifact/javax.ws.rs/javax.ws.rs-api -->
+		<!-- <dependency> -->
+		<!-- <groupId>javax.ws.rs</groupId> -->
+		<!-- <artifactId>javax.ws.rs-api</artifactId> -->
+		<!-- <version>2.1</version> -->
+		<!-- <scope>compile</scope> -->
+		<!-- </dependency> -->
+	<!-- <dependency> -->
+	<!-- <groupId>org.apache.httpcomponents</groupId> -->
+	<!-- <artifactId>httpclient</artifactId> -->
+	<!-- <version>4.5.5</version> -->
+	<!-- </dependency> -->
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>com.atlassian.maven.plugins</groupId>
-                <artifactId>maven-bamboo-plugin</artifactId>
-                <version>${amps.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <productVersion>${bamboo.version}</productVersion>
-                    <productDataVersion>${bamboo.data.version}</productDataVersion>
-                    <enableQuickReload>true</enableQuickReload>
-                    <enableFastdev>false</enableFastdev>
+		<!-- <dependency> -->
+		<!-- <groupId>com.google.code.gson</groupId> -->
+		<!-- <artifactId>gson</artifactId> -->
+		<!-- <version>2.7</version> -->
+		<!-- <scope>compile</scope> -->
+		<!-- </dependency> -->
 
-                    <!-- See here for an explanation of default instructions: -->
-                    <!-- https://developer.atlassian.com/docs/advanced-topics/configuration-of-instructions-in-atlassian-plugins -->
-                    <instructions>
-                        <Atlassian-Plugin-Key>${atlassian.plugin.key}</Atlassian-Plugin-Key>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.10</version>
+			<scope>test</scope>
+		</dependency>
 
-                        <!-- Add package to export here -->
-                        <Export-Package>
-                            eu.gemtec.packagedrone.deploy.api,
-                        </Export-Package>
+		<!-- WIRED TEST RUNNER DEPENDENCIES -->
+		<dependency>
+			<groupId>com.atlassian.plugins</groupId>
+			<artifactId>atlassian-plugins-osgi-testrunner</artifactId>
+			<version>${plugin.testrunner.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>javax.ws.rs</groupId>
+			<artifactId>jsr311-api</artifactId>
+			<version>1.1.1</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.2.2-atlassian-1</version>
+		</dependency>
+	</dependencies>
 
-                        <!-- Add package import here -->
-                        <Import-Package>
-                            org.springframework.osgi.*;resolution:="optional",
-                            org.eclipse.gemini.blueprint.*;resolution:="optional",
-                            *
-                        </Import-Package>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>com.atlassian.maven.plugins</groupId>
+				<artifactId>maven-bamboo-plugin</artifactId>
+				<version>${amps.version}</version>
+				<extensions>true</extensions>
+				<configuration>
+					<productVersion>${bamboo.version}</productVersion>
+					<productDataVersion>${bamboo.data.version}</productDataVersion>
+					<enableQuickReload>true</enableQuickReload>
+					<enableFastdev>false</enableFastdev>
 
-                        <!-- Ensure plugin is spring powered -->
-                        <Spring-Context>*</Spring-Context>
-                    </instructions>
-                </configuration>
-            </plugin>
+					<!-- See here for an explanation of default instructions: -->
+					<!-- https://developer.atlassian.com/docs/advanced-topics/configuration-of-instructions-in-atlassian-plugins -->
+					<instructions>
+						<Atlassian-Plugin-Key>${atlassian.plugin.key}</Atlassian-Plugin-Key>
 
-            <plugin>
-                <groupId>com.atlassian.plugin</groupId>
-                <artifactId>atlassian-spring-scanner-maven-plugin</artifactId>
-                <version>${atlassian.spring.scanner.version}</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>atlassian-spring-scanner</goal>
-                        </goals>
-                        <phase>process-classes</phase>
-                    </execution>
-                </executions>
-                <configuration>
-                    <scannedDependencies>
-                        <dependency>
-                            <groupId>com.atlassian.plugin</groupId>
-                            <artifactId>atlassian-spring-scanner-external-jar</artifactId>
-                        </dependency>
-                    </scannedDependencies>
-                    <verbose>false</verbose>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+						<!-- Add package to export here -->
+						<Export-Package>
+						</Export-Package>
+
+						<!-- Add package import here -->
+						<Import-Package>
+							org.osgi.framework,
+							org.springframework.osgi.*;resolution:="optional",
+							org.eclipse.gemini.blueprint.*;resolution:="optional",
+							org.springframework.aop.support,
+							org.springframework.beans,
+							org.springframework.beans.factory,
+							org.springframework.beans.factory.annotation,
+							org.springframework.beans.factory.config,
+							org.springframework.beans.factory.parsing,
+							org.springframework.beans.factory.support,
+							org.springframework.beans.factory.xml,
+							org.springframework.context.annotation,
+							org.springframework.util,
+							com.spotify.docker.client.shaded.javax.ws.rs.client,
+							com.spotify.docker.client.shaded.javax.ws.rs.core,
+							com.spotify.docker.client.shaded.org.glassfish.jersey.client.authentication,
+							com.spotify.docker.client.shaded.org.glassfish.jersey.jackson,
+							com.atlassian.bamboo.*,
+							com.atlassian.plugin.osgi.factory,
+							com.atlassian.sal.api,
+							com.atlassian.sal.api.message,
+							com.google.common.base,
+							com.google.common.collect,
+							org.apache.log4j,
+							org.apache.commons.logging,
+							org.apache.commons.lang,
+							org.w3c.dom,
+							org.xml.sax,
+							org.xml.sax.helpers,
+							javax.xml.parsers
+							<!-- * -->
+						</Import-Package>
+
+						<!-- Ensure plugin is spring powered -->
+						<Spring-Context>*</Spring-Context>
+					</instructions>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>com.atlassian.plugin</groupId>
+				<artifactId>atlassian-spring-scanner-maven-plugin</artifactId>
+				<version>${atlassian.spring.scanner.version}</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>atlassian-spring-scanner</goal>
+						</goals>
+						<phase>process-classes</phase>
+					</execution>
+				</executions>
+				<configuration>
+					<scannedDependencies>
+						<dependency>
+							<groupId>com.atlassian.plugin</groupId>
+							<artifactId>atlassian-spring-scanner-external-jar</artifactId>
+						</dependency>
+					</scannedDependencies>
+					<verbose>false</verbose>
+				</configuration>
+			</plugin>
+		</plugins>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.glassfish.copyright</groupId>
+					<artifactId>glassfish-copyright-maven-plugin</artifactId>
+					<version>1.49</version>
+					<configuration>
+						<excludeFile>${basedir}/lcs/copyright-exclude</excludeFile>
+						<templateFile>${basedir}/lcs/licensetemplate.txt</templateFile>
+						<!--svn|mercurial|git - defaults to svn -->
+						<scm>git</scm>
+						<!-- turn on/off debugging -->
+						<debug>false</debug>
+						<!-- skip files not under SCM -->
+						<scmOnly>true</scmOnly>
+						<!-- turn off warnings -->
+						<warn>false</warn>
+						<!-- for use with repair -->
+						<update>true</update>
+						<!-- check that year is correct -->
+						<ignoreYear>false</ignoreYear>
+					</configuration>
+				</plugin>
+				<!--This plugin's configuration is used to store Eclipse m2e settings 
+					only. It has no influence on the Maven build itself. -->
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>com.atlassian.maven.plugins</groupId>
+										<artifactId>maven-bamboo-plugin</artifactId>
+										<versionRange>[6.3.15,)</versionRange>
+										<goals>
+											<goal>compress-resources</goal>
+											<goal>filter-plugin-descriptor</goal>
+											<goal>generate-rest-docs</goal>
+											<goal>filter-test-plugin-descriptor</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore></ignore>
+									</action>
+								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>com.atlassian.plugin</groupId>
+										<artifactId>atlassian-spring-scanner-maven-plugin</artifactId>
+										<versionRange>[1.2.13,)</versionRange>
+										<goals>
+											<goal>atlassian-spring-scanner</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore></ignore>
+									</action>
+								</pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
 </project>
