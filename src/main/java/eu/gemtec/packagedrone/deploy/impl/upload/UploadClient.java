@@ -111,8 +111,18 @@ public class UploadClient {
 		} else {
 			Manifest manifest = jar.getManifest();
 			version = Version.parseVersion(manifest.getMainAttributes().getValue("Bundle-Version"));
-			osgiId = manifest.getMainAttributes().getValue("Bundle-SymbolicName").split(";")[0];
-			String hostBundle = manifest.getMainAttributes().getValue("Fragment-Host");
+			String bundleSymbolicName = manifest.getMainAttributes().getValue("Bundle-SymbolicName");
+			String hostBundle = null;
+			if (bundleSymbolicName != null) {
+				osgiId = bundleSymbolicName.split(";")[0];
+				hostBundle = manifest.getMainAttributes().getValue("Fragment-Host");
+			} else {
+				osgiId = gav.getMavenArtifact();
+				if(file.getName().endsWith("-tests.jar"))
+					hostBundle = "";
+				if(file.getName().endsWith("-sources.jar"))
+					osgiId += ".source";
+			}
 
 			if (osgiId.endsWith(".source")) {
 				if (hostBundle != null)
@@ -205,7 +215,8 @@ public class UploadClient {
 			Response putresp = doUpload(uploadTarget, srcName, fis);
 			if (putresp.getStatus() == 200) {
 				InputStream response = (InputStream) putresp.getEntity();
-				UploadResult uploadResult = new Gson().fromJson(new InputStreamReader(response), new TypeToken<UploadResult>() { }.getType());
+				UploadResult uploadResult = new Gson().fromJson(new InputStreamReader(response), new TypeToken<UploadResult>() {
+				}.getType());
 				String packageDroneId = uploadResult.getCreatedArtifacts().get(0).getId();
 				pdArtifact.setPackageDroneId(packageDroneId);
 
@@ -217,7 +228,8 @@ public class UploadClient {
 					uploadChildArtifact(baseTarget, sourceArtifact, pdArtifact);
 				}
 			} else {
-				UploadError errorResponse =  new Gson().fromJson(new InputStreamReader( (InputStream) putresp.getEntity()), new TypeToken<UploadError>() { }.getType());
+				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {
+				}.getType());
 				throw new Exception("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 			}
 		} catch (IOException e) {
@@ -240,7 +252,8 @@ public class UploadClient {
 
 		Response putresp = doUpload(uploadTarget, "pom.xml", pomStream);
 		if (putresp.getStatus() != 200) {
-			UploadError errorResponse =  new Gson().fromJson(new InputStreamReader( (InputStream) putresp.getEntity()), new TypeToken<UploadError>() { }.getType());
+			UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {
+			}.getType());
 			throw new Exception("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 		}
 	}
