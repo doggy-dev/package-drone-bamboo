@@ -44,18 +44,10 @@ public class MyFirstTask implements DeploymentTaskType {
 	public TaskResult execute(DeploymentTaskContext taskContext) throws TaskException {
 		BuildLogger buildLogger = taskContext.getBuildLogger();
 
-		buildLogger.addBuildLogEntry("Hello, World!");
-
-		return run(taskContext);
-	}
-
-	private TaskResult run(CommonTaskContext taskContext) {
 		ArtifactToUpload artifactToScp = ArtifactToolkit.getArtifactToScpFromConfig(taskContext);
 		CopyPathSpecs pathSpecToCopy = ArtifactToolkit.getPathSpecToCopy(taskContext, artifactToScp);
 		if (pathSpecToCopy == null) {
-			BuildLogger buildLogger = taskContext.getBuildLogger();
-			String msg = "Unable to find artifact with id " + artifactToScp.getArtifactIdOrType() + ", called [" + artifactToScp.getName()
-					+ "] at the time this task was configured. The artifact definition or subscription has probably been removed from build.";
+			String msg = "Unable to find artifact with id " + artifactToScp.getArtifactIdOrType() + ", called [" + artifactToScp.getName() + "] at the time this task was configured. The artifact definition or subscription has probably been removed from build.";
 			buildLogger.addErrorLogEntry(taskContext.getBuildLogger().addErrorLogEntry(msg));
 			return TaskResultBuilder.newBuilder(taskContext).failedWithError().build();
 		}
@@ -73,13 +65,14 @@ public class MyFirstTask implements DeploymentTaskType {
 		String channel = config.get(UploadTaskConfigurator.CHANNEL);
 		String key = config.get(UploadTaskConfigurator.KEY);
 		boolean uploadPoms = config.getAsBoolean(UploadTaskConfigurator.UPLOAD_POM);
+		boolean skipUnparseableFiles = config.getAsBoolean(UploadTaskConfigurator.SKIP_UNPARSEABLE);
 
-		PackageDroneClientAdapter client = new PackageDroneClientAdapter(host, port, channel, key, uploadPoms);
+		PackageDroneClientAdapter client = new PackageDroneClientAdapter(host, port, channel, key, uploadPoms, skipUnparseableFiles, buildLogger);
 
 		TaskResultBuilder taskResultBuilder = TaskResultBuilder.newBuilder(taskContext);
 
 		Set<File> failedToUpload = new HashSet<>();
-		TaskResult taskResult = transferFiles(artifactToCopy, client, taskContext, taskResultBuilder, failedToUpload, buildLogger);
+		TaskResult taskResult = transferFiles(artifactToCopy, client, taskResultBuilder);
 
 		if (!failedToUpload.isEmpty() || !TaskState.SUCCESS.equals(taskResult.getTaskState())) {
 			buildLogger.addErrorLogEntry("Copy Failed. Some files were not uploaded successfully.");
@@ -93,15 +86,8 @@ public class MyFirstTask implements DeploymentTaskType {
 		return taskResult;
 	}
 
-	protected TaskResult transferFiles(final CopyPathSpecs artifactToCopy, final PackageDroneClientAdapter client, final CommonTaskContext taskContext,
-			final TaskResultBuilder taskResultBuilder, final Set<File> failedToUpload, final BuildLogger buildLogger) {
-		final String baseDirectory = taskContext.getWorkingDirectory().getAbsolutePath();
-
-		final Set<File> filesToUpload = prepareListOfFilesForTransfer(artifactToCopy);
-
-		client.uploadFiles(filesToUpload);
-
-		return taskResultBuilder.success().build();
+	protected TaskResult transferFiles(CopyPathSpecs artifactToCopy, PackageDroneClientAdapter client, TaskResultBuilder taskResultBuilder) {
+		return client.uploadFiles(prepareListOfFilesForTransfer(artifactToCopy), taskResultBuilder);
 	}
 
 	protected static Set<File> prepareListOfFilesForTransfer(final CopyPathSpecs copyPathSpecs) {
@@ -116,8 +102,6 @@ public class MyFirstTask implements DeploymentTaskType {
 		};
 
 		try {
-			// log.info("Preparing list of files to copy in " + copyPathSpecs.rootDirectory
-			// + " matching " + antPathMatchString);
 			namesVisitor.visitFilesThatMatch(antPathMatchString);
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
@@ -133,16 +117,14 @@ public class MyFirstTask implements DeploymentTaskType {
 		antPathMatchString = Joiner.on(",").join(BambooIterables.stream(localPaths).map(s -> {
 			if ("*".equals(s) || ("*" + File.separator).equals(s)) {
 				return "**";
-			} else {
-				// the simplest case - regular file need an exact content, so we have to know
-				// this is regular file;
-				File file = new File(absoluteRootPath, s);
-				if (s.contains("*") || !file.isFile()) {
-					return s + "/**";
-				} else {
-					return s;
-				}
 			}
+			// the simplest case - regular file need an exact content, so we have to know
+			// this is regular file;
+			File file = new File(absoluteRootPath, s);
+			if (s.contains("*") || !file.isFile()) {
+				return s + "/**";
+			}
+			return s;
 		}).collect(Collectors.toList()));
 		return antPathMatchString;
 	}

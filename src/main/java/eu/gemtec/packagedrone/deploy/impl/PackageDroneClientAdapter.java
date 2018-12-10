@@ -18,7 +18,6 @@ package eu.gemtec.packagedrone.deploy.impl;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -37,9 +36,14 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
-import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneArtifact;
-import eu.gemtec.packagedrone.deploy.impl.entity.Type;
-import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneArtifact.GAV;
+import com.atlassian.bamboo.build.logger.BuildLogger;
+import com.atlassian.bamboo.task.TaskResult;
+import com.atlassian.bamboo.task.TaskResultBuilder;
+
+import eu.gemtec.packagedrone.deploy.impl.entity.ArtifactType;
+import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact;
+import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact.GAV;
+import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneOsgiArtifact;
 import eu.gemtec.packagedrone.deploy.impl.upload.UploadClient;
 
 /**
@@ -48,117 +52,138 @@ import eu.gemtec.packagedrone.deploy.impl.upload.UploadClient;
  */
 public class PackageDroneClientAdapter {
 
-	final UploadClient pdClient;
+	private final UploadClient pdClient;
+	private final boolean skipUnparseableFiles;
+	private final BuildLogger buildLogger;
 
-	public PackageDroneClientAdapter(String host, long port, String channel, String key, boolean uploadPoms) {
-		pdClient = new UploadClient(key, channel, host + ":" + port, uploadPoms);
+	public PackageDroneClientAdapter(	String host,
+										long port,
+										String channel,
+										String key,
+										boolean uploadPoms,
+										boolean skipUnparseableFiles,
+										BuildLogger buildLogger) {
+		this.skipUnparseableFiles = skipUnparseableFiles;
+		this.buildLogger = buildLogger;
+		pdClient = new UploadClient(key, channel, host + ":" + port, uploadPoms, buildLogger);
 	}
 
-	public void uploadFiles(Set<File> filesToUpload) {
-		List<PackageDroneArtifact> features = new LinkedList<>();
-		List<PackageDroneArtifact> bundles = new LinkedList<>();
+	public TaskResult uploadFiles(Set<File> filesToUpload, TaskResultBuilder taskResultBuilder) {
+		List<PackageDroneJarArtifact> features = new LinkedList<>();
+		List<PackageDroneJarArtifact> bundles = new LinkedList<>();
 		for (File file : filesToUpload) {
+			buildLogger.addBuildLogEntry("Checking file: " + file.getAbsolutePath());
 			try {
 				GAV gav = getGav(file);
 				if (gav == null) {
-					// TODO Auto-generated catch block
-					continue;
+					if (skipUnparseableFiles) {
+						buildLogger.addBuildLogEntry("File has no GAV, skipping: " + file.getAbsolutePath());
+						continue;
+					}
+					buildLogger.addBuildLogEntry("File has no GAV, aborting: " + file.getAbsolutePath());
+					throw new RuntimeException("File has no GAV: " + file.getAbsolutePath());
 				}
-				PackageDroneArtifact pdArtifact = UploadClient.makeAtrifact(file, gav);
+				PackageDroneJarArtifact pdArtifact = UploadClient.makeArtifact(file, gav);
 
-				Type artifactType = pdArtifact.getOsgi().getType();
-				if (artifactType == Type.Feature)
+				ArtifactType artifactType = pdArtifact.getType();
+				buildLogger.addBuildLogEntry("ArtifactType: " + artifactType);
+				if (artifactType == ArtifactType.FEATURE)
 					features.add(pdArtifact);
-				else if (artifactType == Type.Bundle || artifactType == Type.Fragment)
+				else
 					bundles.add(pdArtifact);
-
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			} catch (IOException | ParserConfigurationException | SAXException | RuntimeException e) {
+				buildLogger.addErrorLogEntry("Error while collecting artifacts", e);
+				return taskResultBuilder.failedWithError().build();
 			}
 		}
 
-		ArrayList<PackageDroneArtifact> featuresCopy = new ArrayList<>(features);
-		for (PackageDroneArtifact pdArtifact : featuresCopy) {
+		buildLogger.addBuildLogEntry("Uploading Features");
+		for (PackageDroneJarArtifact pdArtifact : features) {
+			buildLogger.addBuildLogEntry("Uploading Feature: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile().getName());
 			try {
-				pdClient.tryUpload(pdArtifact, features, bundles);
+				bundles.removeIf(pda -> pdClient.featureHasArtifact(pdArtifact, pda));
+				pdClient.tryUploadFeature(pdArtifact, bundles, buildLogger);
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				buildLogger.addErrorLogEntry("Error while uploading artifacts", e);
+				return taskResultBuilder.failedWithError().build();
 			}
 		}
+
+		buildLogger.addBuildLogEntry("Uploading Bundles without features");
+		for (PackageDroneJarArtifact pdArtifact : bundles) {
+			buildLogger.addBuildLogEntry("Uploading Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile().getName());
+			try {
+				pdClient.tryUploadArtifact(pdArtifact, buildLogger);
+			} catch (Exception e) {
+				buildLogger.addErrorLogEntry("Error while uploading artifact", e);
+				return taskResultBuilder.failedWithError().build();
+			}
+		}
+		return taskResultBuilder.success().build();
 	}
 
 	@Nullable
-	private GAV getGav(File file) {
-		Document doc = null;
-		try (ZipFile jar = new ZipFile(file)) {
-			Optional<? extends ZipEntry> zipEntry = jar.stream().filter(zEnty -> zEnty.getName().endsWith("pom.xml")).findAny();
-			if (zipEntry.isPresent()) {
-					DocumentBuilderFactory newSecureXMLReader = SecureXMLUtil.newSecureDocumentBuilderFactory();
-					newSecureXMLReader.setNamespaceAware(true);
-
-					try (InputStream inputStream = jar.getInputStream(zipEntry.get())) {
-						DocumentBuilder newSAXParser = newSecureXMLReader.newDocumentBuilder();
-						doc = newSAXParser.parse(inputStream);
-					} catch (SAXException | ParserConfigurationException e2) {
-						// TODO Auto-generated catch block
-						e2.printStackTrace();
-						return null;
-					}
-			} else {
-				// TODO Auto-generated catch block
-			}
-		} catch (ZipException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		}
+	private GAV getGav(File file) throws ParserConfigurationException, SAXException, IOException {
+		Document doc = findPom(file);
 
 		if (doc == null)
 			return null;
 
 		Node project = doc.getElementsByTagName("project").item(0);
-		Node groupId = null;
-		Node artifactId = null;
-		Node version = null;
-		Node parent = null;
-
-		Node projectSubelement = project.getFirstChild();
-		while (projectSubelement != null && (groupId == null || artifactId == null || version == null)) {
-			if ("groupId".equals(projectSubelement.getLocalName())) {
-				groupId = projectSubelement;
-			} else if ("artifactId".equals(projectSubelement.getLocalName())) {
-				artifactId = projectSubelement;
-			} else if ("version".equals(projectSubelement.getLocalName())) {
-				version = projectSubelement;
-			} else if ("parent".equals(projectSubelement.getLocalName())) {
-				parent = projectSubelement;
-			}
-			projectSubelement = projectSubelement.getNextSibling();
-		}
+		Node groupId = getChildElementWithTagName(project, "groupId");
+		Node artifactId = getChildElementWithTagName(project, "artifactId");
+		Node version = getChildElementWithTagName(project, "version");
+		Node parent = getChildElementWithTagName(project, "parent");
 
 		if (groupId == null && parent != null) {
-			Node parentSubelement = parent.getFirstChild();
-			while (groupId == null && parentSubelement != null) {
-				if ("groupId".equals(parentSubelement.getLocalName()))
-					groupId = parentSubelement;
-				parentSubelement = parentSubelement.getNextSibling();
-			}
+			groupId = getChildElementWithTagName(parent, "groupId");
+		}
+		if (version == null && parent != null) {
+			version = getChildElementWithTagName(parent, "version");
 		}
 
-		if (version == null && parent != null) {
-			Node parentSubelement = parent.getFirstChild();
-			while (version == null && parentSubelement != null) {
-				if ("version".equals(parentSubelement.getLocalName()))
-					version = parentSubelement;
-				parentSubelement = parentSubelement.getNextSibling();
+		if (groupId == null || artifactId == null || version == null) {
+			throw new RuntimeException("POM didn't contain all necessary fields");
+		}
+		String versionString;
+		if (version.getTextContent().contains("SNAPSHOT")) {
+			versionString = file.getName().substring(file.getName().indexOf('-') + 1, file.getName().length() - 4);
+		} else {
+			versionString = version.getTextContent();
+		}
+		return new GAV(groupId.getTextContent(), artifactId.getTextContent(), versionString);
+	}
+
+	private Node getChildElementWithTagName(Node parent, String tagName) {
+		for (int i = 0; i < parent.getChildNodes().getLength(); i++) {
+			Node item = parent.getChildNodes().item(i);
+			if (tagName.equals(item.getNodeName())) {
+				return item;
 			}
 		}
-		return new GAV(groupId.getTextContent(), artifactId.getTextContent(), version.getTextContent());
+		return null;
+	}
+
+	/**
+	 * Tries to find and parse the pom.xml file from the given file.
+	 * 
+	 * @param file
+	 *                 a jar-file that contains a pom.xml
+	 * @return the parsed document or {@code null}, if no pom is found
+	 */
+	private Document findPom(File file) throws ParserConfigurationException, SAXException, IOException, ZipException {
+		try (ZipFile jar = new ZipFile(file)) {
+			Optional<? extends ZipEntry> pomFile = jar.stream().filter(zEnty -> zEnty.getName().endsWith("pom.xml")).findAny();
+			if (pomFile.isPresent()) {
+				DocumentBuilderFactory newSecureXMLReader = SecureXMLUtil.newSecureDocumentBuilderFactory();
+				newSecureXMLReader.setNamespaceAware(true);
+
+				try (InputStream inputStream = jar.getInputStream(pomFile.get())) {
+					DocumentBuilder newSAXParser = newSecureXMLReader.newDocumentBuilder();
+					return newSAXParser.parse(inputStream);
+				}
+			}
+		}
+		return null;
 	}
 }

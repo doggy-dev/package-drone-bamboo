@@ -15,10 +15,11 @@
 -->
 [#-- View for Uploader configuration --]
 [@ww.textfield name="host"       labelKey="pd.deploy.view.host"     required="true"  /]
-[@ww.textfield name="port"       labelKey="pd.deploy.view.port"     required="false" /]
+[@ww.textfield name="port"       labelKey="pd.deploy.view.port"     required="true" /]
 [@ww.textfield name="channel"    labelKey="pd.deploy.view.channel"  required="true" cssClass="long-field" /]
 [@ww.textfield name="key"        labelKey="pd.deploy.view.key"      required="true" cssClass="long-field" /]
 [@ww.checkbox  name="uploadPom"  labelKey="pd.deploy.view.uploadPom"/]
+[@ww.checkbox  name="uploadPom"  labelKey="pd.deploy.view.skipUnparseable"/]
 [@ww.select name="artifactToScp" labelKey="pd.deploy.view.artifact" 
 			list=artifactsToScp
 			listKey="value"

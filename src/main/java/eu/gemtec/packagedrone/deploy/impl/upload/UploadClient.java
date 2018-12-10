@@ -21,10 +21,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
-import java.util.Iterator;
 import java.util.List;
+import java.util.jar.Attributes;
 import java.util.jar.JarFile;
-import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 
 import javax.ws.rs.core.MediaType;
@@ -36,6 +35,7 @@ import org.eclipse.equinox.p2.publisher.eclipse.FeatureEntry;
 import org.eclipse.packagedrone.repo.api.upload.UploadError;
 import org.eclipse.packagedrone.repo.api.upload.UploadResult;
 
+import com.atlassian.bamboo.build.logger.BuildLogger;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.spotify.docker.client.shaded.javax.ws.rs.client.Client;
@@ -43,14 +43,14 @@ import com.spotify.docker.client.shaded.javax.ws.rs.client.ClientBuilder;
 import com.spotify.docker.client.shaded.javax.ws.rs.client.Entity;
 import com.spotify.docker.client.shaded.javax.ws.rs.client.WebTarget;
 import com.spotify.docker.client.shaded.javax.ws.rs.core.Response;
-
 import com.spotify.docker.client.shaded.org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import com.spotify.docker.client.shaded.org.glassfish.jersey.jackson.JacksonFeature;
 
-import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneArtifact;
-import eu.gemtec.packagedrone.deploy.impl.entity.Type;
-import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneArtifact.GAV;
-import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneArtifact.OsgiMetadata;
+import eu.gemtec.packagedrone.deploy.impl.entity.ArtifactType;
+import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact;
+import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact.GAV;
+import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneOsgiArtifact;
+import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneOsgiArtifact.OsgiMetadata;
 
 /**
  * @author Veselin Markov
@@ -67,136 +67,158 @@ public class UploadClient {
 
 	private static final String UPLOAD_TO_ARTIFACT = "/api/v3/upload/plain/artifact/{" + CHANNEL_ID_PARAM + "}/{" + PARENT_ID_PARAM + "}/{" + FILENAME_PARAM + "}";
 
-	private final String key;
-
 	private final String channel;
-
-	private final String host;
 
 	private final boolean uploadPom;
 
-	private FeatureParser featureParser = new FeatureParser();
+	private final FeatureParser featureParser = new FeatureParser();
 
-	private Logger logger;
+	private final WebTarget target;
 
-	public UploadClient(String key, String channel, String host, boolean uploadPom) {
-		this.key = key;
+	private final BuildLogger logger;
+
+	public UploadClient(String key,
+						String channel,
+						String host,
+						boolean uploadPom,
+						BuildLogger logger) {
 		this.channel = channel;
-		this.host = host;
 		this.uploadPom = uploadPom;
-	}
-
-	public static PackageDroneArtifact makeAtrifact(File file, GAV gav) throws IOException {
-		JarFile jar = new JarFile(file);
-		PackageDroneArtifact pdSourceArtifact = null;
-
-		Type artifactType;
-		Version version;
-		String osgiId;
-		FeatureParser featureParser = new FeatureParser();
-		Feature parsedFeature = featureParser.parse(file);
-		if (parsedFeature != null) {
-			version = Version.parseVersion(parsedFeature.getVersion());
-			osgiId = parsedFeature.getId();
-			if (osgiId.endsWith(".source"))
-				artifactType = Type.SourceFeature;
-			else
-				artifactType = Type.Feature;
-
-			String sourceFeatureFileName = jar.getName().replace(".jar", "-sources-feature.jar");
-			File sourceFile = new File(sourceFeatureFileName);
-			if (sourceFile.exists()) {
-				pdSourceArtifact = makeAtrifact(sourceFile, gav);
-			}
-		} else {
-			Manifest manifest = jar.getManifest();
-			version = Version.parseVersion(manifest.getMainAttributes().getValue("Bundle-Version"));
-			String bundleSymbolicName = manifest.getMainAttributes().getValue("Bundle-SymbolicName");
-			String hostBundle = null;
-			if (bundleSymbolicName != null) {
-				osgiId = bundleSymbolicName.split(";")[0];
-				hostBundle = manifest.getMainAttributes().getValue("Fragment-Host");
-			} else {
-				osgiId = gav.getMavenArtifact();
-				if(file.getName().endsWith("-tests.jar"))
-					hostBundle = "";
-				if(file.getName().endsWith("-sources.jar"))
-					osgiId += ".source";
-			}
-
-			if (osgiId.endsWith(".source")) {
-				if (hostBundle != null)
-					if ((osgiId.endsWith(".test.source") || osgiId.endsWith(".tests.source")))
-						artifactType = Type.SourceTestFragment;
-					else
-						artifactType = Type.SourceFragment;
-				else
-					artifactType = Type.SourceBundle;
-
-			} else {
-				if (hostBundle != null)
-					if ((osgiId.endsWith(".test") || osgiId.endsWith(".tests")))
-						artifactType = Type.TestFragment;
-					else
-						artifactType = Type.Fragment;
-				else
-					artifactType = Type.Bundle;
-			}
-
-			String sourceFileName = jar.getName().replace(".jar", "-sources.jar");
-			File sourceFile = new File(sourceFileName);
-			if (sourceFile.exists()) {
-				pdSourceArtifact = makeAtrifact(sourceFile, gav);
-			}
-		}
-		jar.close();
-		OsgiMetadata osgi = new OsgiMetadata(osgiId, version, artifactType);
-		PackageDroneArtifact pdArtifact = new PackageDroneArtifact(jar, gav, osgi, pdSourceArtifact);
-		return pdArtifact;
-	}
-
-	public void tryUpload(PackageDroneArtifact pdArtifact, List<PackageDroneArtifact> featureList, List<PackageDroneArtifact> bundleList) throws Exception {
-
+		this.logger = logger;
 		HttpAuthenticationFeature authentication = HttpAuthenticationFeature.basic("deploy", key);
 		Client client = ClientBuilder.newBuilder().register(JacksonFeature.class).register(authentication).build();
-		WebTarget target = client.target("http://" + host);
+		target = client.target("http://" + host);
+	}
 
-		if (pdArtifact.getOsgi().getType() == Type.Feature) {
-			uploadRootArtifact(target, pdArtifact);
-			Feature feature = featureParser.parse(new File(pdArtifact.getFile().getName()));
+	public static PackageDroneJarArtifact makeArtifact(File file, GAV gav) throws IOException {
+		JarFile jar = new JarFile(file);
+		Feature parsedFeature = new FeatureParser().parse(file);
 
-			for (Iterator<PackageDroneArtifact> iterator = bundleList.iterator(); iterator.hasNext();) {
-				PackageDroneArtifact pdBundleArtifacts = iterator.next();
-				if (featureHasArtifact(feature, pdBundleArtifacts)) {
-					uploadChildArtifact(target, pdBundleArtifacts, pdArtifact);
-					iterator.remove();
+		ArtifactType artifactType = getArtifactType(jar, parsedFeature);
+		OsgiMetadata osgiInfo = getOsgiInfo(file, jar, parsedFeature, artifactType);
+		PackageDroneJarArtifact sourceArtifact = getSourceArtifact(file, artifactType, gav);
+		if (osgiInfo != null)
+			return new PackageDroneOsgiArtifact(jar, gav, osgiInfo, sourceArtifact);
+		return new PackageDroneJarArtifact(jar, gav, artifactType, sourceArtifact);
+	}
+
+	private static PackageDroneJarArtifact getSourceArtifact(File file, ArtifactType artifactType, GAV gav) throws IOException {
+		switch (artifactType) {
+			case FEATURE:
+				File sourceFile = new File(file.getName().replace(".jar", "-sources-feature.jar"));
+				if (sourceFile.exists()) {
+					return makeArtifact(sourceFile, gav);
 				}
-			}
-
-		} else if (pdArtifact.getOsgi().getType() == Type.Bundle || pdArtifact.getOsgi().getType() == Type.Fragment) {
-			PackageDroneArtifact pdParentArtifact = getParentFeature(pdArtifact, featureList);
-			if (pdParentArtifact == null)
-				return;
-
-			if ((pdParentArtifact.getPackageDroneId() == null))
-				tryUpload(pdParentArtifact, featureList, bundleList);
-
-			uploadChildArtifact(target, pdArtifact, pdParentArtifact);
+				return null;
+			case BUNDLE:
+			case FRAGMENT:
+			case TEST_FRAGMENT:
+				sourceFile = new File(file.getName().replace(".jar", "-sources.jar"));
+				if (sourceFile.exists()) {
+					return makeArtifact(sourceFile, gav);
+				}
+				return null;
+			default:
+				return null;
 		}
 	}
 
-	private void uploadRootArtifact(WebTarget target, PackageDroneArtifact pdArtifact) throws Exception {
+	private static OsgiMetadata getOsgiInfo(File file, JarFile jar, Feature parsedFeature, ArtifactType artifactType2) throws IOException {
+		switch (artifactType2) {
+			case FEATURE:
+			case SOURCE_FEATURE:
+				return new OsgiMetadata(parsedFeature.getId(), Version.parseVersion(parsedFeature.getVersion()), artifactType2);
+			case MAVEN_MODULE:
+				return null;
+			case FRAGMENT:
+			case BUNDLE:
+			case SOURCE_BUNDLE:
+			case SOURCE_FRAGMENT:
+			case SOURCE_TEST_FRAGMENT:
+			case TEST_FRAGMENT:
+				Attributes attributes = jar.getManifest().getMainAttributes();
+				String id = attributes.getValue("Bundle-SymbolicName").split(";")[0];
+				String version = attributes.getValue("Bundle-Version");
+				return new OsgiMetadata(id, Version.parseVersion(version), artifactType2);
+			case UNDEFINED:
+			default:
+				throw new RuntimeException("Unknown artifact type: " + file.getAbsolutePath());
+		}
+	}
+
+	private static ArtifactType getArtifactType(JarFile file, Feature feature) throws IOException {
+		if (feature == null) {
+			Attributes attributes = file.getManifest().getMainAttributes();
+			if (!attributes.containsKey("Bundle-SymbolicName")) {
+				return ArtifactType.MAVEN_MODULE;
+			}
+			String osgiId = attributes.getValue("Bundle-SymbolicName").split(";")[0];
+			if (attributes.containsKey("Fragment-Host")) {
+				if (osgiId.endsWith(".source")) {
+					if (osgiId.endsWith(".test.source") || osgiId.endsWith(".tests.source")) {
+						return ArtifactType.SOURCE_TEST_FRAGMENT;
+					}
+					return ArtifactType.SOURCE_FRAGMENT;
+				}
+				if (osgiId.endsWith(".test") || osgiId.endsWith(".tests")) {
+					return ArtifactType.TEST_FRAGMENT;
+				}
+				return ArtifactType.FRAGMENT;
+			}
+			if (osgiId.endsWith(".source")) {
+				return ArtifactType.SOURCE_BUNDLE;
+			}
+			return ArtifactType.BUNDLE;
+		}
+		if (feature.getId().endsWith(".source")) {
+			return ArtifactType.SOURCE_FEATURE;
+		}
+		return ArtifactType.FEATURE;
+	}
+
+	/**
+	 * Uploads a single artifact.
+	 * 
+	 * @param buildLogger
+	 * 
+	 * @throws Exception
+	 */
+	public void tryUploadArtifact(PackageDroneJarArtifact pdArtifact, BuildLogger buildLogger) throws Exception {
+		uploadRootArtifact(pdArtifact, buildLogger);
+	}
+
+	/**
+	 * Uploads a feature and all belonging artifacts.
+	 * 
+	 * @param buildLogger
+	 */
+	public void tryUploadFeature(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundleList, BuildLogger buildLogger) throws Exception {
+		if (pdArtifact.getType() != ArtifactType.FEATURE) {
+			throw new RuntimeException("The artifact isn't a feature");
+		}
+		uploadRootArtifact(pdArtifact, buildLogger);
+		Feature feature = featureParser.parse(new File(pdArtifact.getFile().getName()));
+
+		for (PackageDroneJarArtifact pdBundleArtifacts : bundleList) {
+			if (featureHasArtifact(feature, pdBundleArtifacts)) {
+				uploadChildArtifact(pdBundleArtifacts, pdArtifact, buildLogger);
+			}
+		}
+	}
+
+	private void uploadRootArtifact(PackageDroneJarArtifact pdArtifact, BuildLogger buildLogger) throws Exception {
 		WebTarget uploadTarget = createTarget(target, UPLOAD_TO_CHANNEL, FILENAME_PARAM, getArtifactName(pdArtifact), CHANNEL_ID_PARAM, channel);
-		upload(target, uploadTarget, pdArtifact);
+		upload(target, uploadTarget, pdArtifact, buildLogger);
 	}
 
-	private void uploadChildArtifact(WebTarget target, PackageDroneArtifact pdArtifact, PackageDroneArtifact pdParentArtifact) throws Exception {
-		WebTarget uploadTarget = createTarget(target, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, getArtifactName(pdArtifact), CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM,
-				pdParentArtifact.getPackageDroneId());
-		upload(target, uploadTarget, pdArtifact);
+	private void uploadChildArtifact(PackageDroneJarArtifact pdArtifact, PackageDroneJarArtifact pdParentArtifact, BuildLogger buildLogger) throws Exception {
+		WebTarget uploadTarget = createTarget(target, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, getArtifactName(pdArtifact), CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM, pdParentArtifact.getPackageDroneId());
+		upload(target, uploadTarget, pdArtifact, buildLogger);
 	}
 
-	private void upload(WebTarget baseTarget, WebTarget uploadTarget, PackageDroneArtifact pdArtifact) throws Exception {
+	private void upload(WebTarget baseTarget, WebTarget uploadTarget, PackageDroneJarArtifact pdArtifact, BuildLogger buildLogger) throws Exception {
+
+		buildLogger.addBuildLogEntry("Uploading " + pdArtifact.getFile().getName());
 
 		try {
 			String srcName = pdArtifact.getFile().getName();
@@ -204,9 +226,9 @@ public class UploadClient {
 
 			uploadTarget = uploadTarget.queryParam("mvn:artifactId", pdArtifact.getGav().getMavenArtifact());
 			uploadTarget = uploadTarget.queryParam("mvn:groupId", pdArtifact.getGav().getMavenGroup());
-			uploadTarget = uploadTarget.queryParam("mvn:snapshotVersion", pdArtifact.getOsgi().getVersion().toString());
+			uploadTarget = uploadTarget.queryParam("mvn:snapshotVersion", pdArtifact.getVersion());
 			uploadTarget = uploadTarget.queryParam("mvn:version", pdArtifact.getGav().getMavenVersion());
-			if (pdArtifact.getOsgi().getType() == Type.SourceBundle || pdArtifact.getOsgi().getType() == Type.SourceFeature)
+			if (pdArtifact.getType() == ArtifactType.SOURCE_BUNDLE || pdArtifact.getType() == ArtifactType.SOURCE_FEATURE)
 				uploadTarget = uploadTarget.queryParam("mvn:classifier", "sources");
 			// else
 			// uploadTarget = uploadTarget.queryParam("mvn:classifier", "");
@@ -215,21 +237,19 @@ public class UploadClient {
 			Response putresp = doUpload(uploadTarget, srcName, fis);
 			if (putresp.getStatus() == 200) {
 				InputStream response = (InputStream) putresp.getEntity();
-				UploadResult uploadResult = new Gson().fromJson(new InputStreamReader(response), new TypeToken<UploadResult>() {
-				}.getType());
+				UploadResult uploadResult = new Gson().fromJson(new InputStreamReader(response), new TypeToken<UploadResult>() {}.getType());
 				String packageDroneId = uploadResult.getCreatedArtifacts().get(0).getId();
 				pdArtifact.setPackageDroneId(packageDroneId);
 
-				if (uploadPom && pdArtifact.getOsgi().getType() != Type.SourceBundle && pdArtifact.getOsgi().getType() != Type.SourceFeature)
+				if (uploadPom && pdArtifact.getType() != ArtifactType.SOURCE_BUNDLE && pdArtifact.getType() != ArtifactType.SOURCE_FEATURE)
 					uploadPom(baseTarget, pdArtifact);
 
-				PackageDroneArtifact sourceArtifact = pdArtifact.getSource();
+				PackageDroneJarArtifact sourceArtifact = pdArtifact.getSource();
 				if (sourceArtifact != null) {
-					uploadChildArtifact(baseTarget, sourceArtifact, pdArtifact);
+					uploadChildArtifact(sourceArtifact, pdArtifact, buildLogger);
 				}
 			} else {
-				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {
-				}.getType());
+				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
 				throw new Exception("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 			}
 		} catch (IOException e) {
@@ -237,14 +257,13 @@ public class UploadClient {
 		}
 	}
 
-	private void uploadPom(WebTarget baseTarget, PackageDroneArtifact pdArtifact) throws IOException, Exception {
+	private void uploadPom(WebTarget baseTarget, PackageDroneJarArtifact pdArtifact) throws IOException, Exception {
 		InputStream pomStream = getPom(pdArtifact);
 		if (pomStream == null)
 			return;
 
-		String pomfileName = pdArtifact.getOsgi().getId() + "-" + pdArtifact.getOsgi().getVersion() + ".pom";
-		WebTarget uploadTarget = createTarget(baseTarget, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, pomfileName, CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM,
-				pdArtifact.getPackageDroneId());
+		String pomfileName = pdArtifact.getId() + "-" + pdArtifact.getVersion() + ".pom";
+		WebTarget uploadTarget = createTarget(baseTarget, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, pomfileName, CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM, pdArtifact.getPackageDroneId());
 		uploadTarget = uploadTarget.queryParam("mvn:artifactId", pdArtifact.getGav().getMavenArtifact());
 		uploadTarget = uploadTarget.queryParam("mvn:groupId", pdArtifact.getGav().getMavenGroup());
 		uploadTarget = uploadTarget.queryParam("mvn:version", pdArtifact.getGav().getMavenVersion());
@@ -252,13 +271,12 @@ public class UploadClient {
 
 		Response putresp = doUpload(uploadTarget, "pom.xml", pomStream);
 		if (putresp.getStatus() != 200) {
-			UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {
-			}.getType());
+			UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
 			throw new Exception("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 		}
 	}
 
-	private InputStream getPom(PackageDroneArtifact pdArtifact) throws IOException {
+	private InputStream getPom(PackageDroneJarArtifact pdArtifact) throws IOException {
 		String group = pdArtifact.getGav().getMavenGroup();
 		String artifact = pdArtifact.getGav().getMavenArtifact();
 		ZipEntry pom = pdArtifact.getFile().getEntry("META-INF" + "/maven/" + group + "/" + artifact + "/pom.xml");
@@ -271,7 +289,7 @@ public class UploadClient {
 	private Response doUpload(WebTarget uploadTarget, String srcName, InputStream fis) {
 		long start = System.currentTimeMillis();
 		try {
-			getLogger().info("Start uploading " + srcName + " to " + uploadTarget.getUri().toURL().toString());
+			logger.addBuildLogEntry("Start uploading " + srcName + " to " + uploadTarget.getUri().toURL().toString());
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
 		}
@@ -281,58 +299,34 @@ public class UploadClient {
 
 		if (putresp.getStatus() == 200) {
 			long ms = end - start;
-			getLogger().info("Uploaded " + srcName + " to " + uploadTarget.getUri() + " in " + ms + "ms.");
+			logger.addBuildLogEntry("Uploaded " + srcName + " to " + uploadTarget.getUri() + " in " + ms + "ms.");
 		} else {
-			getLogger().error("Uploaded of " + srcName + " failed.");
+			logger.addBuildLogEntry("Upload of " + srcName + " failed.");
+			throw new RuntimeException("Upload of " + srcName + " failed");
 		}
 
 		return putresp;
 	}
 
-	private Logger getLogger() {
-		if (logger == null)
-			return new Logger() {
-				@Override
-				public void info(String string) {
-				}
-
-				@Override
-				public void error(String string) {
-				}
-			};
-		else
-			return logger;
+	private String getArtifactName(PackageDroneJarArtifact pdArtifact) {
+		return pdArtifact.getId() + "-" + pdArtifact.getVersion() + ".jar";
 	}
 
-	public void setLogger(Logger logger) {
-		this.logger = logger;
-	}
-
-	private String getArtifactName(PackageDroneArtifact pdArtifact) {
-		return pdArtifact.getOsgi().getId() + "-" + pdArtifact.getOsgi().getVersion() + ".jar";
-	}
-
-	private PackageDroneArtifact getParentFeature(PackageDroneArtifact pdArtifact, List<PackageDroneArtifact> featureList) {
-
-		for (PackageDroneArtifact featureArtifact : featureList) {
-			Feature feature = featureParser.parse(new File(featureArtifact.getFile().getName()));
-			if (featureHasArtifact(feature, pdArtifact))
-				return featureArtifact;
-		}
-		return null;
-	}
-
-	private boolean featureHasArtifact(Feature feature, PackageDroneArtifact pdArtifact) {
+	private boolean featureHasArtifact(Feature feature, PackageDroneJarArtifact pdArtifact) {
 		FeatureEntry[] entries = feature.getEntries();
 		for (FeatureEntry featureEntry : entries) {
 			if (featureEntry.isPlugin()) {
-				boolean sameId = featureEntry.getId().equals(pdArtifact.getOsgi().getId());
-				boolean sameVersion = featureEntry.getVersion().equals(pdArtifact.getOsgi().getVersion().toString());
+				boolean sameId = featureEntry.getId().equals(pdArtifact.getId());
+				boolean sameVersion = featureEntry.getVersion().equals(pdArtifact.toString());
 				if (sameId && sameVersion)
 					return true;
 			}
 		}
 		return false;
+	}
+
+	public boolean featureHasArtifact(PackageDroneJarArtifact pdArtifact, PackageDroneJarArtifact pda) {
+		return featureHasArtifact(featureParser.parse(new File(pdArtifact.getFile().getName())), pda);
 	}
 
 	private WebTarget createTarget(WebTarget baseTarget, String path, String... paramsAndValues) {

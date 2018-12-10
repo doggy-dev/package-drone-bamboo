@@ -25,7 +25,7 @@ import org.apache.maven.artifact.Artifact;
  */
 public class ArtifactFile {
 	private Artifact artifact;
-	private Type type;
+	private ArtifactType type;
 	private File source;
 	private String id;
 
@@ -42,7 +42,7 @@ public class ArtifactFile {
 	 * @param type
 	 */
 	public ArtifactFile(Artifact artifact,
-						Type type) {
+						ArtifactType type) {
 		super();
 		this.artifact = artifact;
 		this.type = type;
@@ -66,7 +66,7 @@ public class ArtifactFile {
 	/**
 	 * @return the type
 	 */
-	public Type getType() {
+	public ArtifactType getType() {
 		return type;
 	}
 
@@ -74,7 +74,7 @@ public class ArtifactFile {
 	 * @param type
 	 *            the type to set
 	 */
-	public void setType(Type type) {
+	public void setType(ArtifactType type) {
 		this.type = type;
 	}
 

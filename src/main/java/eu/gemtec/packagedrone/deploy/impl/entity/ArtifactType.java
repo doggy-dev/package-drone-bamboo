@@ -19,16 +19,18 @@ package eu.gemtec.packagedrone.deploy.impl.entity;
  * @author Florian Reinecke
  *
  */
-public enum Type {
-	Feature,
-	Bundle,
-	Fragment,
-	TestFragment,
+public enum ArtifactType {
+	FEATURE,
+	BUNDLE,
+	FRAGMENT,
+	TEST_FRAGMENT,
 
-	SourceFeature,
-	SourceBundle,
-	SourceFragment,
-	SourceTestFragment,
+	SOURCE_FEATURE,
+	SOURCE_BUNDLE,
+	SOURCE_FRAGMENT,
+	SOURCE_TEST_FRAGMENT,
 
-	NotDefined
+	MAVEN_MODULE,
+
+	UNDEFINED
 }

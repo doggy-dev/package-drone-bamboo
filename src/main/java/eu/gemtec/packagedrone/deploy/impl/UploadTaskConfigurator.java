@@ -75,6 +75,7 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 	static final String KEY = "key";
 	static final String UPLOAD_POM = "uploadPom";
 	static final String ARTIFACT_TO_UPLOAD = "artifactToScp";
+	static final String SKIP_UNPARSEABLE = "skipUnparseable";
 
 	private I18nResolver textProvider;
 	private CachedPlanManager cachedPlanManager;
@@ -95,7 +96,7 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 	public Map<String, String> generateTaskConfigMap(ActionParametersMap params, TaskDefinition previousTaskDefinition) {
 
 		Map<String, String> generateTaskConfigMap = super.generateTaskConfigMap(params, previousTaskDefinition);
-		taskConfiguratorHelper.populateTaskConfigMapWithActionParameters(generateTaskConfigMap, params, Arrays.asList(HOST, PORT, CHANNEL, KEY, UPLOAD_POM, ARTIFACT_TO_UPLOAD));
+		taskConfiguratorHelper.populateTaskConfigMapWithActionParameters(generateTaskConfigMap, params, Arrays.asList(HOST, PORT, CHANNEL, KEY, UPLOAD_POM, ARTIFACT_TO_UPLOAD, SKIP_UNPARSEABLE));
 		return generateTaskConfigMap;
 	}
 
