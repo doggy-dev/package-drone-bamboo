@@ -59,7 +59,6 @@ import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.message.I18nResolver;
 import com.google.common.base.Predicate;
 
-
 /**
  * Persistrs task configurations and loads task configuration when task is beeing edited.
  * 
@@ -82,9 +81,11 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 	private ArtifactDefinitionManager artifactDefinitionManager;
 
 	@Inject
-	public UploadTaskConfigurator(@ComponentImport I18nResolver i18n, @ComponentImport CachedPlanManager cachedPlanManager,
-			@ComponentImport ArtifactDefinitionManager artifactDefinitionManager, @BambooImport TaskConfiguratorHelper taskConfiguratorHelper,
-			@BambooImport BambooAuthenticationContext bambooAuthenticationContext) {
+	public UploadTaskConfigurator(	@ComponentImport I18nResolver i18n,
+									@ComponentImport CachedPlanManager cachedPlanManager,
+									@ComponentImport ArtifactDefinitionManager artifactDefinitionManager,
+									@BambooImport TaskConfiguratorHelper taskConfiguratorHelper,
+									@BambooImport BambooAuthenticationContext bambooAuthenticationContext) {
 		this.textProvider = i18n;
 		this.cachedPlanManager = cachedPlanManager;
 		this.artifactDefinitionManager = artifactDefinitionManager;
@@ -94,7 +95,6 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 
 	@Override
 	public Map<String, String> generateTaskConfigMap(ActionParametersMap params, TaskDefinition previousTaskDefinition) {
-
 		Map<String, String> generateTaskConfigMap = super.generateTaskConfigMap(params, previousTaskDefinition);
 		taskConfiguratorHelper.populateTaskConfigMapWithActionParameters(generateTaskConfigMap, params, Arrays.asList(HOST, PORT, CHANNEL, KEY, UPLOAD_POM, ARTIFACT_TO_UPLOAD, SKIP_UNPARSEABLE));
 		return generateTaskConfigMap;
@@ -163,8 +163,7 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 				break;
 			}
 			final Map<String, String> taskConfiguration = task.getConfiguration();
-			final String sourcePlanKey = checkNotNull(ArtifactDownloaderTaskConfigurationHelper.getSourcePlanKey(taskConfiguration),
-					"Source plan key not found in task configuration");
+			final String sourcePlanKey = checkNotNull(ArtifactDownloaderTaskConfigurationHelper.getSourcePlanKey(taskConfiguration), "Source plan key not found in task configuration");
 			final PlanKey typedSourcePlanKey = PlanKeys.getPlanKey(sourcePlanKey);
 			final ImmutablePlan plan = checkNotNull(cachedPlanManager.getPlanByKey(typedSourcePlanKey), "Plan " + typedSourcePlanKey + " not found");
 			final String artifactsFromOtherPlans = textProvider.getText("pd.deploy.view.other.plan.artifacts", plan.getName());

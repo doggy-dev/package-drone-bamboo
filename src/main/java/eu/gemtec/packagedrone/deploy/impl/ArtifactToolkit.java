@@ -42,9 +42,8 @@ public class ArtifactToolkit {
 		final String artifactToUpload = taskContext.getConfigurationMap().get(UploadTaskConfigurator.ARTIFACT_TO_UPLOAD);
 		if (artifactToUpload != null) {
 			return new ArtifactToUpload(artifactToUpload);
-		} else {
-			throw new IllegalArgumentException("unable to find artifact to SCP");
 		}
+		throw new IllegalArgumentException("unable to find artifact to SCP");
 	}
 
 	@Nullable
@@ -59,18 +58,15 @@ public class ArtifactToolkit {
 	@Nullable
 	private static CopyPathSpecs artifactToUploadFromTransferTask(@NotNull CommonTaskContext taskContext, @NotNull ArtifactToUpload artifactToUpload) {
 		final long artifactDownloaderTaskId = Preconditions.checkNotNull(artifactToUpload.getArtifactDownloaderTaskId());
-		final Optional<RuntimeTaskDefinition> artifactDownloaderTaskDefinition = taskContext.getCommonContext().getRuntimeTaskDefinitions().stream()
-				.filter(taskDefinition -> taskDefinition.getId() == artifactDownloaderTaskId).findAny();
+		final Optional<RuntimeTaskDefinition> artifactDownloaderTaskDefinition = taskContext.getCommonContext().getRuntimeTaskDefinitions().stream().filter(taskDefinition -> taskDefinition.getId() == artifactDownloaderTaskId).findAny();
 		if (!artifactDownloaderTaskDefinition.isPresent()) {
 			return null;
 		}
 
-		final Map<String, String> artDownloaderRuntimeTaskContext = Preconditions.checkNotNull(artifactDownloaderTaskDefinition.get().getRuntimeContext(),
-				"Artifact Provider Task has no runtime configuration");
+		final Map<String, String> artDownloaderRuntimeTaskContext = Preconditions.checkNotNull(artifactDownloaderTaskDefinition.get().getRuntimeContext(), "Artifact Provider Task has no runtime configuration");
 
 		final Integer artifactDownloaderTransferId = artifactToUpload.getArtifactDownloaderTransferId();
-		final Collection<Integer> runtimeArtifactIds = ArtifactDownloaderTaskConfigurationHelper.getRuntimeArtifactIds(artDownloaderRuntimeTaskContext,
-				artifactDownloaderTransferId);
+		final Collection<Integer> runtimeArtifactIds = ArtifactDownloaderTaskConfigurationHelper.getRuntimeArtifactIds(artDownloaderRuntimeTaskContext, artifactDownloaderTransferId);
 
 		String localPath = null;
 		StringBuilder pathSpecs = new StringBuilder();
@@ -91,19 +87,23 @@ public class ArtifactToolkit {
 		final boolean isAntPattern;
 		final File rootDirectory;
 
-		public CopyPathSpecs(File rootDirectory, String pathSpecs, boolean useAntPath) {
+		public CopyPathSpecs(	File rootDirectory,
+								String pathSpecs,
+								boolean useAntPath) {
 			this.rootDirectory = rootDirectory;
 			copyPattern = pathSpecs;
 			isAntPattern = useAntPath;
 		}
 
-		public CopyPathSpecs(final File rootDirectory, ArtifactDefinitionContext artifactDefinitionContext) {
+		public CopyPathSpecs(	final File rootDirectory,
+								ArtifactDefinitionContext artifactDefinitionContext) {
 			this.rootDirectory = new File(rootDirectory, artifactDefinitionContext.getLocation());
 			copyPattern = artifactDefinitionContext.getCopyPattern();
 			isAntPattern = true;
 		}
 
-		public CopyPathSpecs(final File rootDirectory, final ArtifactSubscriptionContext artifactSubscriptionContext) {
+		public CopyPathSpecs(	final File rootDirectory,
+								final ArtifactSubscriptionContext artifactSubscriptionContext) {
 			this.rootDirectory = new File(rootDirectory, artifactSubscriptionContext.getDestinationPath());
 			copyPattern = artifactSubscriptionContext.getArtifactDefinitionContext().getCopyPattern();
 			isAntPattern = true;
