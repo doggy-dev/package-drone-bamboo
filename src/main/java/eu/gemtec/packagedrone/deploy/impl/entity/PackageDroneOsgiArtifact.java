@@ -15,8 +15,6 @@
  */
 package eu.gemtec.packagedrone.deploy.impl.entity;
 
-import java.util.jar.JarFile;
-
 import org.eclipse.equinox.p2.metadata.Version;
 
 /**
@@ -27,11 +25,10 @@ public class PackageDroneOsgiArtifact extends PackageDroneJarArtifact {
 
 	private final OsgiMetadata osgi;
 
-	public PackageDroneOsgiArtifact(JarFile jar,
+	public PackageDroneOsgiArtifact(String jarFilePath,
 									GAV gav,
-									OsgiMetadata osgi,
-									PackageDroneJarArtifact source) {
-		super(jar, gav, osgi.type, source);
+									OsgiMetadata osgi) {
+		super(jarFilePath, gav, osgi.type);
 		this.osgi = osgi;
 	}
 

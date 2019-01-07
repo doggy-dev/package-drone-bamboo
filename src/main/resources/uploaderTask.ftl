@@ -21,8 +21,15 @@
 [@ww.checkbox	name="uploadPom"			labelKey="pd.deploy.view.uploadPom"/]
 [@ww.checkbox	name="skipUnparseable"		labelKey="pd.deploy.view.skipUnparseable"/]
 [@ww.select		name="artifactToScp"		labelKey="pd.deploy.view.artifact" 
-			list=artifactsToScp
-			listKey="value"
-			listValue="displayName"
-			groupBy="group"
-			toggle = true /]
+				list=artifactsToScp
+				listKey="value"
+				listValue="displayName"
+				groupBy="group"
+				required = "true" /]
+[@ww.select		name="childArtifacts"		labelKey="pd.deploy.view.childArtifacts"
+				list=childArtifacts
+				listKey="value"
+				listValue="displayName"
+				groupBy="group"
+				required = "true"
+				value = childArtifacts_selected /]

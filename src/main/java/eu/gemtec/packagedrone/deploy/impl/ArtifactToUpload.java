@@ -21,7 +21,7 @@ import com.atlassian.bamboo.plan.artifact.ImmutableArtifactDefinition;
 import com.atlassian.bamboo.plan.artifact.ImmutableArtifactSubscription;
 import com.atlassian.bamboo.task.TaskDefinition;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 public final class ArtifactToUpload {
 
@@ -68,8 +68,10 @@ public final class ArtifactToUpload {
 		return artifactDownloaderTaskId;
 	}
 
-	private ArtifactToUpload(long artifactIdOrType, @Nullable Long artifactDownloaderTaskId,
-			@Nullable Integer artifactDownloaderTransferId, String name) {
+	private ArtifactToUpload(	long artifactIdOrType,
+								@Nullable Long artifactDownloaderTaskId,
+								@Nullable Integer artifactDownloaderTransferId,
+								String name) {
 		this.artifactIdOrType = artifactIdOrType;
 		this.artifactDownloaderTaskId = artifactDownloaderTaskId;
 		this.artifactDownloaderTransferId = artifactDownloaderTransferId;
@@ -77,23 +79,20 @@ public final class ArtifactToUpload {
 	}
 
 	public static ArtifactToUpload from(ImmutableArtifactSubscription artifactSubscription) {
-		return new ArtifactToUpload(artifactSubscription.getArtifactDefinition().getId(), null, null,
-				artifactSubscription.getName());
+		return new ArtifactToUpload(artifactSubscription.getArtifactDefinition().getId(), null, null, artifactSubscription.getName());
 	}
 
 	public static ArtifactToUpload from(ImmutableArtifactDefinition artifactDefinition) {
 		return new ArtifactToUpload(artifactDefinition.getId(), null, null, artifactDefinition.getName());
 	}
 
-	public static ArtifactToUpload fromTransferTask(long artifactId, TaskDefinition task, int transferId,
-			String artifactName) {
+	public static ArtifactToUpload fromTransferTask(long artifactId, TaskDefinition task, int transferId, String artifactName) {
 		return new ArtifactToUpload(artifactId, task.getId(), transferId, artifactName);
 	}
 
 	@Override
 	public String toString() {
-		return Joiner.on(':').join(artifactIdOrType, Objects.firstNonNull(artifactDownloaderTaskId, NO_TRANSFER_ID),
-				Objects.firstNonNull(artifactDownloaderTransferId, NO_TRANSFER_ID), name);
+		return Joiner.on(':').join(artifactIdOrType, MoreObjects.firstNonNull(artifactDownloaderTaskId, NO_TRANSFER_ID), MoreObjects.firstNonNull(artifactDownloaderTransferId, NO_TRANSFER_ID), name);
 	}
 
 	public boolean isAllArtifacts() {

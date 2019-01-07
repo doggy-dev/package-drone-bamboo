@@ -66,8 +66,9 @@ public class MyFirstTask implements DeploymentTaskType {
 		String key = config.get(UploadTaskConfigurator.KEY);
 		boolean uploadPoms = config.getAsBoolean(UploadTaskConfigurator.UPLOAD_POM);
 		boolean skipUnparseableFiles = config.getAsBoolean(UploadTaskConfigurator.SKIP_UNPARSEABLE);
+		String uploadType = config.get(UploadTaskConfigurator.CHILD_ARTIFACTS);
 
-		PackageDroneClientAdapter client = new PackageDroneClientAdapter(host, port, channel, key, uploadPoms, skipUnparseableFiles, buildLogger);
+		PackageDroneClientAdapter client = new PackageDroneClientAdapter(host, port, channel, key, uploadPoms, skipUnparseableFiles, uploadType, buildLogger);
 
 		TaskResultBuilder taskResultBuilder = TaskResultBuilder.newBuilder(taskContext);
 

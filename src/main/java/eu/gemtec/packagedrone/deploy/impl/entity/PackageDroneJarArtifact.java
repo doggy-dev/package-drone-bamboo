@@ -6,28 +6,23 @@
  */
 package eu.gemtec.packagedrone.deploy.impl.entity;
 
-import java.util.jar.JarFile;
-
 /**
  * @author Christian Schwarz
  *
  */
 public class PackageDroneJarArtifact {
 
-	private final JarFile file;
+	private final String jarFilePath;
 	private final GAV gav;
-	private final PackageDroneJarArtifact source;
 	private final ArtifactType type;
 	private String packageDroneId;
 
-	public PackageDroneJarArtifact(	JarFile file,
+	public PackageDroneJarArtifact(	String jarFilePath,
 									GAV gav,
-									ArtifactType type,
-									PackageDroneJarArtifact source) {
-		this.file = file;
+									ArtifactType type) {
+		this.jarFilePath = jarFilePath;
 		this.gav = gav;
 		this.type = type;
-		this.source = source;
 	}
 
 	public String getVersion() {
@@ -42,16 +37,12 @@ public class PackageDroneJarArtifact {
 		return type;
 	}
 
-	public JarFile getFile() {
-		return file;
+	public String getFile() {
+		return jarFilePath;
 	}
 
 	public GAV getGav() {
 		return gav;
-	}
-
-	public PackageDroneJarArtifact getSource() {
-		return source;
 	}
 
 	public String getPackageDroneId() {
@@ -64,7 +55,7 @@ public class PackageDroneJarArtifact {
 
 	@Override
 	public String toString() {
-		return "JarPackageDroneArtifact [gav=" + gav + ", source=" + source + ", packageDroneId=" + packageDroneId + "]";
+		return "JarPackageDroneArtifact [gav=" + gav + ", packageDroneId=" + packageDroneId + "]";
 	}
 
 	public static class GAV {

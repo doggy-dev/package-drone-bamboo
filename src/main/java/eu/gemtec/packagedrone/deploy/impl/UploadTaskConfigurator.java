@@ -75,6 +75,13 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 	static final String UPLOAD_POM = "uploadPom";
 	static final String ARTIFACT_TO_UPLOAD = "artifactToScp";
 	static final String SKIP_UNPARSEABLE = "skipUnparseable";
+	static final String CHILD_ARTIFACTS = "childArtifacts";
+	static final String DONT_UPLOAD = "dont_upload";
+	static final String DONT_UPLOAD_I18N = "pd.deploy.view.childArtifacts.dontUpload";
+	static final String NORMAL_UPLOAD = "normal_upload";
+	static final String NORMAL_UPLOAD_I18N = "pd.deploy.view.childArtifacts.uploadNormal";
+	static final String CHILD_UPLOAD = "child_upload";
+	static final String CHILD_UPLOAD_I18N = "pd.deploy.view.childArtifacts.uploadAsChild";
 
 	private I18nResolver textProvider;
 	private CachedPlanManager cachedPlanManager;
@@ -96,7 +103,7 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 	@Override
 	public Map<String, String> generateTaskConfigMap(ActionParametersMap params, TaskDefinition previousTaskDefinition) {
 		Map<String, String> generateTaskConfigMap = super.generateTaskConfigMap(params, previousTaskDefinition);
-		taskConfiguratorHelper.populateTaskConfigMapWithActionParameters(generateTaskConfigMap, params, Arrays.asList(HOST, PORT, CHANNEL, KEY, UPLOAD_POM, ARTIFACT_TO_UPLOAD, SKIP_UNPARSEABLE));
+		taskConfiguratorHelper.populateTaskConfigMapWithActionParameters(generateTaskConfigMap, params, Arrays.asList(HOST, PORT, CHANNEL, KEY, UPLOAD_POM, ARTIFACT_TO_UPLOAD, SKIP_UNPARSEABLE, CHILD_ARTIFACTS));
 		return generateTaskConfigMap;
 	}
 
@@ -104,6 +111,8 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 	public void populateContextForCreate(@NotNull Map<String, Object> context) {
 		super.populateContextForCreate(context);
 		addArtifactData(context, null);
+		addChildUploadOptions(context);
+		context.put("childArtifacts_selected", DONT_UPLOAD);
 	}
 
 	@Override
@@ -111,6 +120,8 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 		super.populateContextForEdit(context, taskDefinition);
 		copyToContext(context, taskDefinition);
 		addArtifactData(context, taskDefinition);
+		addChildUploadOptions(context);
+		context.put("childArtifacts_selected", taskDefinition.getConfiguration().get(CHILD_ARTIFACTS));
 	}
 
 	private void copyToContext(Map<String, Object> context, TaskDefinition taskDefinition) {
@@ -122,6 +133,15 @@ public class UploadTaskConfigurator extends AbstractTaskConfigurator {
 	@Override
 	public void validate(ActionParametersMap params, ErrorCollection errorCollection) {
 		super.validate(params, errorCollection);
+	}
+
+	private void addChildUploadOptions(Map<String, Object> context) {
+		// @formatter:off
+		context.put("childArtifacts", Arrays.asList(
+		            new WwSelectOption(getI18nBean().getText(DONT_UPLOAD_I18N), "", DONT_UPLOAD),
+		            new WwSelectOption(getI18nBean().getText(CHILD_UPLOAD_I18N), "", CHILD_UPLOAD), 
+		            new WwSelectOption(getI18nBean().getText(NORMAL_UPLOAD_I18N), "", NORMAL_UPLOAD)));
+		// @formatter:on
 	}
 
 	private void addArtifactData(Map<String, Object> context, @Nullable TaskDefinition definitionOfTaskBeingEdited) {

@@ -18,6 +18,8 @@ package eu.gemtec.packagedrone.deploy.impl;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +45,6 @@ import com.atlassian.bamboo.task.TaskResultBuilder;
 import eu.gemtec.packagedrone.deploy.impl.entity.ArtifactType;
 import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact;
 import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact.GAV;
-import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneOsgiArtifact;
 import eu.gemtec.packagedrone.deploy.impl.upload.UploadClient;
 
 /**
@@ -55,6 +56,7 @@ public class PackageDroneClientAdapter {
 	private final UploadClient pdClient;
 	private final boolean skipUnparseableFiles;
 	private final BuildLogger buildLogger;
+	private final String uploadType;
 
 	public PackageDroneClientAdapter(	String host,
 										long port,
@@ -62,10 +64,13 @@ public class PackageDroneClientAdapter {
 										String key,
 										boolean uploadPoms,
 										boolean skipUnparseableFiles,
+										String uploadType,
 										BuildLogger buildLogger) {
 		this.skipUnparseableFiles = skipUnparseableFiles;
 		this.buildLogger = buildLogger;
-		pdClient = new UploadClient(key, channel, host + ":" + port, uploadPoms, buildLogger);
+		this.uploadType = uploadType;
+		boolean uploadChildArtifacts = UploadTaskConfigurator.CHILD_UPLOAD.equals(uploadType);
+		pdClient = new UploadClient(key, channel, host + ":" + port, uploadPoms, uploadChildArtifacts, buildLogger);
 	}
 
 	public TaskResult uploadFiles(Set<File> filesToUpload, TaskResultBuilder taskResultBuilder) {
@@ -74,7 +79,7 @@ public class PackageDroneClientAdapter {
 		for (File file : filesToUpload) {
 			buildLogger.addBuildLogEntry("Checking file: " + file.getAbsolutePath());
 			try {
-				GAV gav = getGav(file);
+				GAV gav = getGavFromJar(file, filesToUpload);
 				if (gav == null) {
 					if (skipUnparseableFiles) {
 						buildLogger.addBuildLogEntry("File has no GAV, skipping: " + file.getAbsolutePath());
@@ -99,7 +104,7 @@ public class PackageDroneClientAdapter {
 
 		buildLogger.addBuildLogEntry("Uploading Features");
 		for (PackageDroneJarArtifact pdArtifact : features) {
-			buildLogger.addBuildLogEntry("Uploading Feature: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile().getName());
+			buildLogger.addBuildLogEntry("Uploading Feature: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
 			try {
 				bundles.removeIf(pda -> pdClient.featureHasArtifact(pdArtifact, pda));
 				pdClient.tryUploadFeature(pdArtifact, bundles, buildLogger);
@@ -110,10 +115,19 @@ public class PackageDroneClientAdapter {
 		}
 
 		buildLogger.addBuildLogEntry("Uploading Bundles without features");
+		bundles.sort(Comparator.<PackageDroneJarArtifact, String> comparing(pda -> pda.getFile()).reversed());
+		Set<PackageDroneJarArtifact> artifactsToSkip = new HashSet<>();
 		for (PackageDroneJarArtifact pdArtifact : bundles) {
-			buildLogger.addBuildLogEntry("Uploading Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile().getName());
 			try {
-				pdClient.tryUploadArtifact(pdArtifact, buildLogger);
+				if (artifactsToSkip.contains(pdArtifact) && !UploadTaskConfigurator.NORMAL_UPLOAD.equals(uploadType)) {
+					buildLogger.addBuildLogEntry("Skipping Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
+					continue;
+				}
+				buildLogger.addBuildLogEntry("Uploading Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
+				if (!UploadTaskConfigurator.NORMAL_UPLOAD.equals(uploadType)) {
+					addChildArtifactsToSkipList(bundles, artifactsToSkip, pdArtifact);
+				}
+				pdClient.tryUploadArtifact(pdArtifact, bundles, buildLogger);
 			} catch (Exception e) {
 				buildLogger.addErrorLogEntry("Error while uploading artifact", e);
 				return taskResultBuilder.failedWithError().build();
@@ -122,13 +136,44 @@ public class PackageDroneClientAdapter {
 		return taskResultBuilder.success().build();
 	}
 
+	private void addChildArtifactsToSkipList(List<PackageDroneJarArtifact> bundles, Set<PackageDroneJarArtifact> artifactsToSkip, PackageDroneJarArtifact pdArtifact) {
+		for (PackageDroneJarArtifact pda : bundles) {
+			if (pdClient.rootBundleHasChild(pdArtifact, pda)) {
+				artifactsToSkip.add(pda);
+			}
+		}
+	}
+
 	@Nullable
-	private GAV getGav(File file) throws ParserConfigurationException, SAXException, IOException {
+	private GAV getGavFromJar(File file, Set<File> filesToUpload) throws ParserConfigurationException, SAXException, IOException {
 		Document doc = findPom(file);
 
-		if (doc == null)
-			return null;
+		if (doc == null) {
+			return tryGetGavFromParentJar(file, filesToUpload);
+		}
 
+		return getGavFromPom(file, doc);
+	}
+
+	/**
+	 * Versucht, die GAV aus einer übergeordneten JAR-Datei (z.B. myBundle.jar für myBundle-source.jar)
+	 * zu besorgen.
+	 * 
+	 * @return möglierweise {@code null}
+	 */
+	private GAV tryGetGavFromParentJar(File file, Set<File> filesToUpload) throws ParserConfigurationException, SAXException, IOException {
+		for (File otherFile : filesToUpload) {
+			if (file.equals(otherFile)) {
+				continue;
+			}
+			if (file.getName().startsWith(otherFile.getName().substring(0, otherFile.getName().length() - 4))) {
+				return getGavFromJar(otherFile, filesToUpload);
+			}
+		}
+		return null;
+	}
+
+	private GAV getGavFromPom(File file, Document doc) {
 		Node project = doc.getElementsByTagName("project").item(0);
 		Node groupId = getChildElementWithTagName(project, "groupId");
 		Node artifactId = getChildElementWithTagName(project, "artifactId");
