@@ -1,14 +1,28 @@
 /*
- * Copyright Gemtec GmbH 2009-2018
+ * Copyright (c) 2018 Veselin Markov. All rights reserved.
  *
- * Erstellt am: 07.12.2018 16:05:59
- * Erstellt von: Christian Schwarz 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package eu.gemtec.packagedrone.deploy.impl.entity;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * @author Christian Schwarz
- *
+ * Represents a JAR file as package drone artifact.
+ * 
+ * @author Peter Jeschke
  */
 public class PackageDroneJarArtifact {
 
@@ -16,7 +30,7 @@ public class PackageDroneJarArtifact {
 	private final GAV gav;
 	private final ArtifactType type;
 	private String packageDroneId;
-	private PackageDroneJarArtifact parent;
+	private final List<PackageDroneJarArtifact> children = new ArrayList<>();
 
 	public PackageDroneJarArtifact(	String jarFilePath,
 									GAV gav,
@@ -54,12 +68,8 @@ public class PackageDroneJarArtifact {
 		this.packageDroneId = packageDroneId;
 	}
 
-	public PackageDroneJarArtifact getParent() {
-		return parent;
-	}
-
-	public void setParent(PackageDroneJarArtifact parent) {
-		this.parent = parent;
+	public List<PackageDroneJarArtifact> getChildren() {
+		return children;
 	}
 
 	@Override
@@ -99,14 +109,36 @@ public class PackageDroneJarArtifact {
 	}
 
 	/**
-	 * Prüft, ob das übergebene Artefakt als Kind-Artefakt angesehen werden kann.
+	 * Checks whether pda is a child artifact of {@code this}.
+	 * 
+	 * @throws IOException
+	 *             might be thrown my implementing classes
 	 */
-	public boolean hasChild(PackageDroneJarArtifact pda) {
+	public boolean hasChild(PackageDroneJarArtifact pda) throws IOException {
 		String rootNameWithoutExtension = jarFilePath.substring(0, jarFilePath.length() - 4);
 
 		String childFilename = pda.getFile();
 		String childNameWithoutExtension = childFilename.substring(0, childFilename.length() - 4);
 		// z.B. bundle.jar und bundle-sources.jar
 		return childNameWithoutExtension.startsWith(rootNameWithoutExtension + "-");
+	}
+
+	/**
+	 * Filters all children of this artifact from the given list and returns them.
+	 * 
+	 * @param artifacts
+	 *            a list of artifacts that should be inspected
+	 * @return a list of children of this artifact. Is a subset of {@code artifacts}
+	 * @throws IOException
+	 *             if some files couldn't be read to get information
+	 */
+	public List<PackageDroneJarArtifact> findChildren(List<PackageDroneJarArtifact> artifacts) throws IOException {
+		List<PackageDroneJarArtifact> children = new ArrayList<>();
+		for (PackageDroneJarArtifact artifact : artifacts) {
+			if (hasChild(artifact)) {
+				children.add(artifact);
+			}
+		}
+		return children;
 	}
 }
