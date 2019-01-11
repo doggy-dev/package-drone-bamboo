@@ -38,7 +38,7 @@ import com.google.common.base.Splitter;
 
 import eu.gemtec.packagedrone.deploy.impl.ArtifactToolkit.CopyPathSpecs;
 
-public class MyFirstTask implements DeploymentTaskType {
+public class DeployTask implements DeploymentTaskType {
 
 	@Override
 	public TaskResult execute(DeploymentTaskContext taskContext) throws TaskException {

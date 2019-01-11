@@ -18,12 +18,13 @@ package eu.gemtec.packagedrone.deploy.impl;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -74,40 +75,22 @@ public class PackageDroneClientAdapter {
 	}
 
 	public TaskResult uploadFiles(Set<File> filesToUpload, TaskResultBuilder taskResultBuilder) {
-		List<PackageDroneJarArtifact> features = new LinkedList<>();
-		List<PackageDroneJarArtifact> bundles = new LinkedList<>();
-		for (File file : filesToUpload) {
-			buildLogger.addBuildLogEntry("Checking file: " + file.getAbsolutePath());
-			try {
-				GAV gav = getGavFromJar(file, filesToUpload);
-				if (gav == null) {
-					if (skipUnparseableFiles) {
-						buildLogger.addBuildLogEntry("File has no GAV, skipping: " + file.getAbsolutePath());
-						continue;
-					}
-					buildLogger.addBuildLogEntry("File has no GAV, aborting: " + file.getAbsolutePath());
-					throw new RuntimeException("File has no GAV: " + file.getAbsolutePath());
-				}
-				PackageDroneJarArtifact pdArtifact = UploadClient.makeArtifact(file, gav);
-
-				ArtifactType artifactType = pdArtifact.getType();
-				buildLogger.addBuildLogEntry("ArtifactType: " + artifactType);
-				if (artifactType == ArtifactType.FEATURE)
-					features.add(pdArtifact);
-				else
-					bundles.add(pdArtifact);
-			} catch (IOException | ParserConfigurationException | SAXException | RuntimeException e) {
-				buildLogger.addErrorLogEntry("Error while collecting artifacts", e);
-				return taskResultBuilder.failedWithError().build();
-			}
+		List<PackageDroneJarArtifact> artifacts;
+		try {
+			artifacts = createArtifactsFromFiles(filesToUpload);
+		} catch (ParserConfigurationException | SAXException | IOException e) {
+			buildLogger.addErrorLogEntry("Error while collecting artifacts", e);
+			return taskResultBuilder.failedWithError().build();
 		}
+		List<PackageDroneJarArtifact> features = artifacts.stream().filter(a -> a.getType() == ArtifactType.FEATURE).collect(Collectors.toList());
+		List<PackageDroneJarArtifact> bundles = artifacts.stream().filter(a -> a.getType() != ArtifactType.FEATURE).collect(Collectors.toList());
 
 		buildLogger.addBuildLogEntry("Uploading Features");
 		for (PackageDroneJarArtifact pdArtifact : features) {
 			buildLogger.addBuildLogEntry("Uploading Feature: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
 			try {
-				bundles.removeIf(pda -> pdClient.featureHasArtifact(pdArtifact, pda));
 				pdClient.tryUploadFeature(pdArtifact, bundles, buildLogger);
+				bundles.removeIf(pda -> pdClient.featureHasArtifact(pdArtifact, pda));
 			} catch (Exception e) {
 				buildLogger.addErrorLogEntry("Error while uploading artifacts", e);
 				return taskResultBuilder.failedWithError().build();
@@ -136,6 +119,33 @@ public class PackageDroneClientAdapter {
 		return taskResultBuilder.success().build();
 	}
 
+	/**
+	 * @param filesToUpload
+	 * @param artifacts
+	 * @return
+	 * @throws IOException
+	 * @throws SAXException
+	 * @throws ParserConfigurationException
+	 */
+	private List<PackageDroneJarArtifact> createArtifactsFromFiles(Set<File> filesToUpload) throws ParserConfigurationException, SAXException, IOException {
+		List<PackageDroneJarArtifact> artifacts = new ArrayList<>();
+		for (File file : filesToUpload) {
+			buildLogger.addBuildLogEntry("Checking file: " + file.getAbsolutePath());
+			GAV gav = getGavFromJar(file, filesToUpload);
+			if (gav == null) {
+				if (skipUnparseableFiles) {
+					buildLogger.addBuildLogEntry("File has no GAV, skipping: " + file.getAbsolutePath());
+					continue;
+				}
+				buildLogger.addErrorLogEntry("File has no GAV, aborting: " + file.getAbsolutePath());
+				throw new RuntimeException("File has no GAV: " + file.getAbsolutePath());
+			}
+			PackageDroneJarArtifact pdArtifact = UploadClient.makeArtifact(file, gav);
+			artifacts.add(pdArtifact);
+		}
+		return artifacts;
+	}
+
 	private void addChildArtifactsToSkipList(List<PackageDroneJarArtifact> bundles, Set<PackageDroneJarArtifact> artifactsToSkip, PackageDroneJarArtifact pdArtifact) {
 		for (PackageDroneJarArtifact pda : bundles) {
 			if (pdClient.rootBundleHasChild(pdArtifact, pda)) {
@@ -156,8 +166,8 @@ public class PackageDroneClientAdapter {
 	}
 
 	/**
-	 * Versucht, die GAV aus einer übergeordneten JAR-Datei (z.B. myBundle.jar für myBundle-source.jar)
-	 * zu besorgen.
+	 * Versucht, die GAV aus einer übergeordneten JAR-Datei (z.B. myBundle.jar für
+	 * myBundle-source.jar) zu besorgen.
 	 * 
 	 * @return möglierweise {@code null}
 	 */
@@ -213,7 +223,7 @@ public class PackageDroneClientAdapter {
 	 * Tries to find and parse the pom.xml file from the given file.
 	 * 
 	 * @param file
-	 *                 a jar-file that contains a pom.xml
+	 *            a jar-file that contains a pom.xml
 	 * @return the parsed document or {@code null}, if no pom is found
 	 */
 	private Document findPom(File file) throws ParserConfigurationException, SAXException, IOException, ZipException {

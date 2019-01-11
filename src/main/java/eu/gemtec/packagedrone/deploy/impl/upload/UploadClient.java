@@ -169,6 +169,7 @@ public class UploadClient {
 	 * @param buildLogger
 	 */
 	public void tryUploadFeature(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundleList, BuildLogger buildLogger) throws Exception {
+		buildLogger.addBuildLogEntry("Uploading Feature: " + pdArtifact.getId());
 		if (pdArtifact.getType() != ArtifactType.FEATURE) {
 			throw new RuntimeException("The artifact isn't a feature");
 		}
@@ -176,19 +177,23 @@ public class UploadClient {
 		Feature feature = featureParser.parse(new File(pdArtifact.getFile()));
 
 		for (PackageDroneJarArtifact pdBundleArtifacts : bundleList) {
+			buildLogger.addBuildLogEntry("Checking " + pdBundleArtifacts.getId() + " for feature");
 			if (featureHasArtifact(feature, pdBundleArtifacts)) {
+				buildLogger.addBuildLogEntry("Feature " + pdArtifact.getId() + " has artifact, uploading it too: " + pdBundleArtifacts.getId());
 				uploadChildArtifact(pdBundleArtifacts, bundleList, pdArtifact, buildLogger);
 			}
 		}
 	}
 
 	private void uploadRootArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, BuildLogger buildLogger) throws Exception {
+		buildLogger.addBuildLogEntry("Uploading Root Artifact: " + pdArtifact.getId());
 		WebTarget uploadTarget = createTarget(target, UPLOAD_TO_CHANNEL, FILENAME_PARAM, getArtifactName(pdArtifact), CHANNEL_ID_PARAM, channel);
 		upload(target, uploadTarget, pdArtifact, buildLogger);
 
 		if (uploadChildArtifacts) {
 			for (PackageDroneJarArtifact packageDroneJarArtifact : bundles) {
 				if (rootBundleHasChild(pdArtifact, packageDroneJarArtifact)) {
+					buildLogger.addBuildLogEntry("Root Artifact " + pdArtifact.getId() + " has child, uploading it too: " + packageDroneJarArtifact.getId());
 					uploadChildArtifact(packageDroneJarArtifact, bundles, pdArtifact, buildLogger);
 				}
 			}
@@ -196,6 +201,7 @@ public class UploadClient {
 	}
 
 	private void uploadChildArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, PackageDroneJarArtifact pdParentArtifact, BuildLogger buildLogger) throws Exception {
+		buildLogger.addBuildLogEntry("Uploading Child Artifact: " + pdArtifact.getId() + " for parent: " + pdParentArtifact.getId());
 		WebTarget uploadTarget = createTarget(target, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, getArtifactName(pdArtifact), CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM, pdParentArtifact.getPackageDroneId());
 		upload(target, uploadTarget, pdArtifact, buildLogger);
 
@@ -304,7 +310,7 @@ public class UploadClient {
 		for (FeatureEntry featureEntry : entries) {
 			if (featureEntry.isPlugin()) {
 				boolean sameId = featureEntry.getId().equals(pdArtifact.getId());
-				boolean sameVersion = featureEntry.getVersion().equals(pdArtifact.toString());
+				boolean sameVersion = featureEntry.getVersion().equals(pdArtifact.getVersion());
 				if (sameId && sameVersion)
 					return true;
 			}
@@ -317,13 +323,7 @@ public class UploadClient {
 	}
 
 	public boolean rootBundleHasChild(PackageDroneJarArtifact pdArtifact, PackageDroneJarArtifact pda) {
-		String rootFilename = pdArtifact.getFile();
-		String rootNameWithoutExtension = rootFilename.substring(0, rootFilename.length() - 4);
-
-		String childFilename = pda.getFile();
-		String childNameWithoutExtension = childFilename.substring(0, childFilename.length() - 4);
-		// z.B. bundle.jar und bundle-sources.jar
-		return childNameWithoutExtension.startsWith(rootNameWithoutExtension + "-");
+		return pdArtifact.hasChild(pda);
 	}
 
 	private WebTarget createTarget(WebTarget baseTarget, String path, String... paramsAndValues) {

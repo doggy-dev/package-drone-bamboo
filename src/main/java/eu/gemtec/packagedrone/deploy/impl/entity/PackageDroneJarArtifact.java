@@ -88,4 +88,16 @@ public class PackageDroneJarArtifact {
 			return "GAV [mavenGroup=" + mavenGroup + ", mavenArtifact=" + mavenArtifact + ", mavenVersion=" + mavenVersion + "]";
 		}
 	}
+
+	/**
+	 * Prüft, ob das übergebene Artefakt als Kind-Artefakt angesehen werden kann.
+	 */
+	public boolean hasChild(PackageDroneJarArtifact pda) {
+		String rootNameWithoutExtension = jarFilePath.substring(0, jarFilePath.length() - 4);
+
+		String childFilename = pda.getFile();
+		String childNameWithoutExtension = childFilename.substring(0, childFilename.length() - 4);
+		// z.B. bundle.jar und bundle-sources.jar
+		return childNameWithoutExtension.startsWith(rootNameWithoutExtension + "-");
+	}
 }
