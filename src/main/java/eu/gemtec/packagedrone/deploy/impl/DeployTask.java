@@ -16,11 +16,15 @@
 package eu.gemtec.packagedrone.deploy.impl;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.jetbrains.annotations.NotNull;
+import org.xml.sax.SAXException;
 
 import com.atlassian.bamboo.build.logger.BuildLogger;
 import com.atlassian.bamboo.configuration.ConfigurationMap;
@@ -73,7 +77,7 @@ public class DeployTask implements DeploymentTaskType {
 		TaskResultBuilder taskResultBuilder = TaskResultBuilder.newBuilder(taskContext);
 
 		Set<File> failedToUpload = new HashSet<>();
-		TaskResult taskResult = transferFiles(artifactToCopy, client, taskResultBuilder);
+		TaskResult taskResult = transferFiles(artifactToCopy, client, taskResultBuilder, buildLogger);
 
 		if (!failedToUpload.isEmpty() || !TaskState.SUCCESS.equals(taskResult.getTaskState())) {
 			buildLogger.addErrorLogEntry("Copy Failed. Some files were not uploaded successfully.");
@@ -87,8 +91,14 @@ public class DeployTask implements DeploymentTaskType {
 		return taskResult;
 	}
 
-	protected TaskResult transferFiles(CopyPathSpecs artifactToCopy, PackageDroneClientAdapter client, TaskResultBuilder taskResultBuilder) {
-		return client.uploadFiles(prepareListOfFilesForTransfer(artifactToCopy), taskResultBuilder);
+	protected TaskResult transferFiles(CopyPathSpecs artifactToCopy, PackageDroneClientAdapter client, TaskResultBuilder taskResultBuilder, BuildLogger buildLogger) {
+		try {
+			client.uploadFiles(prepareListOfFilesForTransfer(artifactToCopy));
+		} catch (ParserConfigurationException | SAXException | IOException | UploadException e) {
+			buildLogger.addErrorLogEntry("Error uploading files", e);
+			taskResultBuilder.failedWithError().build();
+		}
+		return taskResultBuilder.success().build();
 	}
 
 	protected static Set<File> prepareListOfFilesForTransfer(final CopyPathSpecs copyPathSpecs) {

@@ -40,8 +40,6 @@ import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
 import com.atlassian.bamboo.build.logger.BuildLogger;
-import com.atlassian.bamboo.task.TaskResult;
-import com.atlassian.bamboo.task.TaskResultBuilder;
 
 import eu.gemtec.packagedrone.deploy.impl.entity.ArtifactType;
 import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact;
@@ -74,59 +72,34 @@ public class PackageDroneClientAdapter {
 		pdClient = new UploadClient(key, channel, host + ":" + port, uploadPoms, uploadChildArtifacts, buildLogger);
 	}
 
-	public TaskResult uploadFiles(Set<File> filesToUpload, TaskResultBuilder taskResultBuilder) {
-		List<PackageDroneJarArtifact> artifacts;
-		try {
-			artifacts = createArtifactsFromFiles(filesToUpload);
-		} catch (ParserConfigurationException | SAXException | IOException e) {
-			buildLogger.addErrorLogEntry("Error while collecting artifacts", e);
-			return taskResultBuilder.failedWithError().build();
-		}
+	public void uploadFiles(Set<File> filesToUpload) throws ParserConfigurationException, SAXException, IOException, UploadException {
+		List<PackageDroneJarArtifact> artifacts = createArtifactsFromFiles(filesToUpload);
 		List<PackageDroneJarArtifact> features = artifacts.stream().filter(a -> a.getType() == ArtifactType.FEATURE).collect(Collectors.toList());
 		List<PackageDroneJarArtifact> bundles = artifacts.stream().filter(a -> a.getType() != ArtifactType.FEATURE).collect(Collectors.toList());
 
 		buildLogger.addBuildLogEntry("Uploading Features");
 		for (PackageDroneJarArtifact pdArtifact : features) {
 			buildLogger.addBuildLogEntry("Uploading Feature: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
-			try {
-				pdClient.tryUploadFeature(pdArtifact, bundles, buildLogger);
-				bundles.removeIf(pda -> pdClient.featureHasArtifact(pdArtifact, pda));
-			} catch (Exception e) {
-				buildLogger.addErrorLogEntry("Error while uploading artifacts", e);
-				return taskResultBuilder.failedWithError().build();
-			}
+			pdClient.tryUploadFeature(pdArtifact, bundles, buildLogger);
+			bundles.removeIf(pda -> pdClient.featureHasArtifact(pdArtifact, pda));
 		}
 
 		buildLogger.addBuildLogEntry("Uploading Bundles without features");
 		bundles.sort(Comparator.<PackageDroneJarArtifact, String> comparing(pda -> pda.getFile()).reversed());
 		Set<PackageDroneJarArtifact> artifactsToSkip = new HashSet<>();
 		for (PackageDroneJarArtifact pdArtifact : bundles) {
-			try {
-				if (artifactsToSkip.contains(pdArtifact) && !UploadTaskConfigurator.NORMAL_UPLOAD.equals(uploadType)) {
-					buildLogger.addBuildLogEntry("Skipping Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
-					continue;
-				}
-				buildLogger.addBuildLogEntry("Uploading Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
-				if (!UploadTaskConfigurator.NORMAL_UPLOAD.equals(uploadType)) {
-					addChildArtifactsToSkipList(bundles, artifactsToSkip, pdArtifact);
-				}
-				pdClient.tryUploadArtifact(pdArtifact, bundles, buildLogger);
-			} catch (Exception e) {
-				buildLogger.addErrorLogEntry("Error while uploading artifact", e);
-				return taskResultBuilder.failedWithError().build();
+			if (artifactsToSkip.contains(pdArtifact) && !UploadTaskConfigurator.NORMAL_UPLOAD.equals(uploadType)) {
+				buildLogger.addBuildLogEntry("Skipping Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
+				continue;
 			}
+			buildLogger.addBuildLogEntry("Uploading Bundle: " + pdArtifact.getGav().getMavenGroup() + ":" + pdArtifact.getGav().getMavenArtifact() + ":" + pdArtifact.getGav().getMavenVersion() + " via file: " + pdArtifact.getFile());
+			if (!UploadTaskConfigurator.NORMAL_UPLOAD.equals(uploadType)) {
+				addChildArtifactsToSkipList(bundles, artifactsToSkip, pdArtifact);
+			}
+			pdClient.tryUploadArtifact(pdArtifact, bundles, buildLogger);
 		}
-		return taskResultBuilder.success().build();
 	}
 
-	/**
-	 * @param filesToUpload
-	 * @param artifacts
-	 * @return
-	 * @throws IOException
-	 * @throws SAXException
-	 * @throws ParserConfigurationException
-	 */
 	private List<PackageDroneJarArtifact> createArtifactsFromFiles(Set<File> filesToUpload) throws ParserConfigurationException, SAXException, IOException {
 		List<PackageDroneJarArtifact> artifacts = new ArrayList<>();
 		for (File file : filesToUpload) {

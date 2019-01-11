@@ -16,6 +16,7 @@ public class PackageDroneJarArtifact {
 	private final GAV gav;
 	private final ArtifactType type;
 	private String packageDroneId;
+	private PackageDroneJarArtifact parent;
 
 	public PackageDroneJarArtifact(	String jarFilePath,
 									GAV gav,
@@ -51,6 +52,14 @@ public class PackageDroneJarArtifact {
 
 	public void setPackageDroneId(String packageDroneId) {
 		this.packageDroneId = packageDroneId;
+	}
+
+	public PackageDroneJarArtifact getParent() {
+		return parent;
+	}
+
+	public void setParent(PackageDroneJarArtifact parent) {
+		this.parent = parent;
 	}
 
 	@Override

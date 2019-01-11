@@ -46,6 +46,7 @@ import com.spotify.docker.client.shaded.javax.ws.rs.core.Response;
 import com.spotify.docker.client.shaded.org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import com.spotify.docker.client.shaded.org.glassfish.jersey.jackson.JacksonFeature;
 
+import eu.gemtec.packagedrone.deploy.impl.UploadException;
 import eu.gemtec.packagedrone.deploy.impl.entity.ArtifactType;
 import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact;
 import eu.gemtec.packagedrone.deploy.impl.entity.PackageDroneJarArtifact.GAV;
@@ -97,11 +98,11 @@ public class UploadClient {
 		}
 	}
 
-	private static OsgiMetadata getOsgiInfo(File file, JarFile jar, Feature parsedFeature, ArtifactType artifactType2) throws IOException {
-		switch (artifactType2) {
+	private static OsgiMetadata getOsgiInfo(File file, JarFile jar, Feature parsedFeature, ArtifactType artifactType) throws IOException {
+		switch (artifactType) {
 			case FEATURE:
 			case SOURCE_FEATURE:
-				return new OsgiMetadata(parsedFeature.getId(), Version.parseVersion(parsedFeature.getVersion()), artifactType2);
+				return new OsgiMetadata(parsedFeature.getId(), Version.parseVersion(parsedFeature.getVersion()), artifactType);
 			case MAVEN_MODULE:
 				return null;
 			case FRAGMENT:
@@ -113,7 +114,7 @@ public class UploadClient {
 				Attributes attributes = jar.getManifest().getMainAttributes();
 				String id = attributes.getValue("Bundle-SymbolicName").split(";")[0];
 				String version = attributes.getValue("Bundle-Version");
-				return new OsgiMetadata(id, Version.parseVersion(version), artifactType2);
+				return new OsgiMetadata(id, Version.parseVersion(version), artifactType);
 			case UNDEFINED:
 			default:
 				throw new RuntimeException("Unknown artifact type: " + file.getAbsolutePath());
@@ -152,23 +153,15 @@ public class UploadClient {
 
 	/**
 	 * Uploads a single artifact.
-	 * 
-	 * @param bundles
-	 * 
-	 * @param buildLogger
-	 * 
-	 * @throws Exception
 	 */
-	public void tryUploadArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, BuildLogger buildLogger) throws Exception {
+	public void tryUploadArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, BuildLogger buildLogger) throws IOException, UploadException {
 		uploadRootArtifact(pdArtifact, bundles, buildLogger);
 	}
 
 	/**
 	 * Uploads a feature and all belonging artifacts.
-	 * 
-	 * @param buildLogger
 	 */
-	public void tryUploadFeature(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundleList, BuildLogger buildLogger) throws Exception {
+	public void tryUploadFeature(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundleList, BuildLogger buildLogger) throws IOException, UploadException {
 		buildLogger.addBuildLogEntry("Uploading Feature: " + pdArtifact.getId());
 		if (pdArtifact.getType() != ArtifactType.FEATURE) {
 			throw new RuntimeException("The artifact isn't a feature");
@@ -185,7 +178,7 @@ public class UploadClient {
 		}
 	}
 
-	private void uploadRootArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, BuildLogger buildLogger) throws Exception {
+	private void uploadRootArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, BuildLogger buildLogger) throws IOException, UploadException {
 		buildLogger.addBuildLogEntry("Uploading Root Artifact: " + pdArtifact.getId());
 		WebTarget uploadTarget = createTarget(target, UPLOAD_TO_CHANNEL, FILENAME_PARAM, getArtifactName(pdArtifact), CHANNEL_ID_PARAM, channel);
 		upload(target, uploadTarget, pdArtifact, buildLogger);
@@ -200,7 +193,7 @@ public class UploadClient {
 		}
 	}
 
-	private void uploadChildArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, PackageDroneJarArtifact pdParentArtifact, BuildLogger buildLogger) throws Exception {
+	private void uploadChildArtifact(PackageDroneJarArtifact pdArtifact, List<PackageDroneJarArtifact> bundles, PackageDroneJarArtifact pdParentArtifact, BuildLogger buildLogger) throws IOException, UploadException {
 		buildLogger.addBuildLogEntry("Uploading Child Artifact: " + pdArtifact.getId() + " for parent: " + pdParentArtifact.getId());
 		WebTarget uploadTarget = createTarget(target, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, getArtifactName(pdArtifact), CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM, pdParentArtifact.getPackageDroneId());
 		upload(target, uploadTarget, pdArtifact, buildLogger);
@@ -214,7 +207,7 @@ public class UploadClient {
 		}
 	}
 
-	private void upload(WebTarget baseTarget, WebTarget uploadTarget, PackageDroneJarArtifact pdArtifact, BuildLogger buildLogger) throws Exception {
+	private void upload(WebTarget baseTarget, WebTarget uploadTarget, PackageDroneJarArtifact pdArtifact, BuildLogger buildLogger) throws IOException, UploadException {
 
 		buildLogger.addBuildLogEntry("Uploading " + pdArtifact.getFile());
 
@@ -240,14 +233,12 @@ public class UploadClient {
 				}
 			} else {
 				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
-				throw new Exception("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
+				throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 			}
-		} catch (IOException e) {
-			throw new Exception("Error while reading jar file", e);
 		}
 	}
 
-	private void uploadPom(WebTarget baseTarget, PackageDroneJarArtifact pdArtifact) throws IOException, Exception {
+	private void uploadPom(WebTarget baseTarget, PackageDroneJarArtifact pdArtifact) throws IOException, UploadException {
 		try (InputStream pomStream = getPom(pdArtifact)) {
 			if (pomStream == null)
 				return;
@@ -262,7 +253,7 @@ public class UploadClient {
 			Response putresp = doUpload(uploadTarget, "pom.xml", pomStream);
 			if (putresp.getStatus() != 200) {
 				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
-				throw new Exception("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
+				throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 			}
 		}
 	}
