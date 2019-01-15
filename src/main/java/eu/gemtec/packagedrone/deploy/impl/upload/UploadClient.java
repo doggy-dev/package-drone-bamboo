@@ -22,21 +22,20 @@ import java.io.InputStreamReader;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-
 import org.eclipse.packagedrone.repo.api.upload.UploadError;
 import org.eclipse.packagedrone.repo.api.upload.UploadResult;
-import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
-import org.glassfish.jersey.jackson.JacksonFeature;
 
 import com.atlassian.bamboo.build.logger.BuildLogger;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.spotify.docker.client.shaded.javax.ws.rs.client.Client;
+import com.spotify.docker.client.shaded.javax.ws.rs.client.ClientBuilder;
+import com.spotify.docker.client.shaded.javax.ws.rs.client.Entity;
+import com.spotify.docker.client.shaded.javax.ws.rs.client.WebTarget;
+import com.spotify.docker.client.shaded.javax.ws.rs.core.MediaType;
+import com.spotify.docker.client.shaded.javax.ws.rs.core.Response;
+import com.spotify.docker.client.shaded.org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
+import com.spotify.docker.client.shaded.org.glassfish.jersey.jackson.JacksonFeature;
 
 import eu.gemtec.packagedrone.deploy.impl.UploadException;
 import eu.gemtec.packagedrone.deploy.impl.entity.ArtifactType;
@@ -122,19 +121,18 @@ public class UploadClient {
 			}
 			uploadTarget = uploadTarget.queryParam("mvn:extension", "jar");
 
-			try (Response putresp = doUpload(uploadTarget, srcName, fis)) {
-				if (putresp.getStatus() == 200) {
-					UploadResult uploadResult = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadResult>() {}.getType());
-					String packageDroneId = uploadResult.getCreatedArtifacts().get(0).getId();
-					pdArtifact.setPackageDroneId(packageDroneId);
+			Response putresp = doUpload(uploadTarget, srcName, fis);
+			if (putresp.getStatus() == 200) {
+				UploadResult uploadResult = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadResult>() {}.getType());
+				String packageDroneId = uploadResult.getCreatedArtifacts().get(0).getId();
+				pdArtifact.setPackageDroneId(packageDroneId);
 
-					if (uploadPom && pdArtifact.getType() != ArtifactType.SOURCE_BUNDLE && pdArtifact.getType() != ArtifactType.SOURCE_FEATURE) {
-						uploadPom(pdArtifact);
-					}
-				} else {
-					UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
-					throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
+				if (uploadPom && pdArtifact.getType() != ArtifactType.SOURCE_BUNDLE && pdArtifact.getType() != ArtifactType.SOURCE_FEATURE) {
+					uploadPom(pdArtifact);
 				}
+			} else {
+				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
+				throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 			}
 		}
 	}
@@ -151,11 +149,10 @@ public class UploadClient {
 			uploadTarget = uploadTarget.queryParam("mvn:version", pdArtifact.getGav().getMavenVersion());
 			uploadTarget = uploadTarget.queryParam("mvn:extension", "pom");
 
-			try (Response putresp = doUpload(uploadTarget, "pom.xml", pomStream)) {
-				if (putresp.getStatus() != 200) {
-					UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
-					throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
-				}
+			Response putresp = doUpload(uploadTarget, "pom.xml", pomStream);
+			if (putresp.getStatus() != 200) {
+				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
+				throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
 			}
 		}
 	}
@@ -172,10 +169,10 @@ public class UploadClient {
 		}
 	}
 
-	private Response doUpload(WebTarget uploadTarget, String srcName, InputStream fis) {
+	private com.spotify.docker.client.shaded.javax.ws.rs.core.Response doUpload(WebTarget uploadTarget, String srcName, InputStream fis) {
 		long start = System.currentTimeMillis();
 		logger.addBuildLogEntry("Start uploading " + srcName + " to " + uploadTarget.getUri().toString());
-		Response putresp = uploadTarget.request(MediaType.APPLICATION_JSON).put(Entity.entity(fis, MediaType.APPLICATION_OCTET_STREAM));
+		com.spotify.docker.client.shaded.javax.ws.rs.core.Response putresp = uploadTarget.request(MediaType.APPLICATION_JSON).put(Entity.entity(fis, MediaType.APPLICATION_OCTET_STREAM));
 		long end = System.currentTimeMillis();
 		putresp.bufferEntity();
 

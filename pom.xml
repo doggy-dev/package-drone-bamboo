@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright (c) 2018 Veselin Markov. All rights reserved. Licensed under 
-	the Apache License, Version 2.0 (the "License"); you may not use this file 
-	except in compliance with the License. You may obtain a copy of the License 
-	at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable 
-	law or agreed to in writing, software distributed under the License is distributed 
-	on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
-	express or implied. See the License for the specific language governing permissions 
-	and limitations under the License. -->
+<!--
+    Copyright (c) 2018 Veselin Markov. All rights reserved.
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.gemtec</groupId>
@@ -113,24 +118,25 @@
 			<scope>provided</scope>
 		</dependency>
 
-		<dependency>
-			<groupId>javax.ws.rs</groupId>
-			<artifactId>javax.ws.rs-api</artifactId>
-			<version>2.1</version>
-			<scope>compile</scope>
-		</dependency>
+		<!-- https://mvnrepository.com/artifact/javax.ws.rs/javax.ws.rs-api -->
+		<!-- <dependency> -->
+		<!-- <groupId>javax.ws.rs</groupId> -->
+		<!-- <artifactId>javax.ws.rs-api</artifactId> -->
+		<!-- <version>2.1</version> -->
+		<!-- <scope>compile</scope> -->
+		<!-- </dependency> -->
+	<!-- <dependency> -->
+	<!-- <groupId>org.apache.httpcomponents</groupId> -->
+	<!-- <artifactId>httpclient</artifactId> -->
+	<!-- <version>4.5.5</version> -->
+	<!-- </dependency> -->
 
-		<dependency>
-			<groupId>org.glassfish.jersey.core</groupId>
-			<artifactId>jersey-client</artifactId>
-			<version>2.27</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.glassfish.jersey.media</groupId>
-			<artifactId>jersey-media-json-jackson</artifactId>
-			<version>2.27</version>
-		</dependency>
+		<!-- <dependency> -->
+		<!-- <groupId>com.google.code.gson</groupId> -->
+		<!-- <artifactId>gson</artifactId> -->
+		<!-- <version>2.7</version> -->
+		<!-- <scope>compile</scope> -->
+		<!-- </dependency> -->
 
 		<dependency>
 			<groupId>junit</groupId>
@@ -196,6 +202,10 @@
 							org.springframework.beans.factory.xml,
 							org.springframework.context.annotation,
 							org.springframework.util,
+							com.spotify.docker.client.shaded.javax.ws.rs.client,
+							com.spotify.docker.client.shaded.javax.ws.rs.core,
+							com.spotify.docker.client.shaded.org.glassfish.jersey.client.authentication,
+							com.spotify.docker.client.shaded.org.glassfish.jersey.jackson,
 							com.atlassian.bamboo.*,
 							com.atlassian.plugin.osgi.factory,
 							com.atlassian.sal.api,
