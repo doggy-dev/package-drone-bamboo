@@ -138,34 +138,27 @@ public class UploadClient {
 	}
 
 	private void uploadPom(PackageDroneJarArtifact pdArtifact) throws IOException, UploadException {
-		try (InputStream pomStream = getPom(pdArtifact)) {
-			if (pomStream == null)
-				return;
-
-			String pomfileName = pdArtifact.getId() + "-" + pdArtifact.getVersion() + ".pom";
-			WebTarget uploadTarget = createTarget(target, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, pomfileName, CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM, pdArtifact.getPackageDroneId());
-			uploadTarget = uploadTarget.queryParam("mvn:artifactId", pdArtifact.getGav().getMavenArtifact());
-			uploadTarget = uploadTarget.queryParam("mvn:groupId", pdArtifact.getGav().getMavenGroup());
-			uploadTarget = uploadTarget.queryParam("mvn:version", pdArtifact.getGav().getMavenVersion());
-			uploadTarget = uploadTarget.queryParam("mvn:extension", "pom");
-
-			Response putresp = doUpload(uploadTarget, "pom.xml", pomStream);
-			if (putresp.getStatus() != 200) {
-				UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
-				throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
-			}
-		}
-	}
-
-	private InputStream getPom(PackageDroneJarArtifact pdArtifact) throws IOException {
 		String group = pdArtifact.getGav().getMavenGroup();
 		String artifact = pdArtifact.getGav().getMavenArtifact();
 		try (JarFile jar = new JarFile(pdArtifact.getFile())) {
 			ZipEntry pom = jar.getEntry("META-INF" + "/maven/" + group + "/" + artifact + "/pom.xml");
 			if (pom == null)
-				return null;
-			InputStream pomStream = jar.getInputStream(pom);
-			return pomStream;
+				return;
+			try (InputStream pomStream = jar.getInputStream(pom)) {
+
+				String pomfileName = pdArtifact.getId() + "-" + pdArtifact.getVersion() + ".pom";
+				WebTarget uploadTarget = createTarget(target, UPLOAD_TO_ARTIFACT, FILENAME_PARAM, pomfileName, CHANNEL_ID_PARAM, channel, PARENT_ID_PARAM, pdArtifact.getPackageDroneId());
+				uploadTarget = uploadTarget.queryParam("mvn:artifactId", pdArtifact.getGav().getMavenArtifact());
+				uploadTarget = uploadTarget.queryParam("mvn:groupId", pdArtifact.getGav().getMavenGroup());
+				uploadTarget = uploadTarget.queryParam("mvn:version", pdArtifact.getGav().getMavenVersion());
+				uploadTarget = uploadTarget.queryParam("mvn:extension", "pom");
+
+				Response putresp = doUpload(uploadTarget, "pom.xml", pomStream);
+				if (putresp.getStatus() != 200) {
+					UploadError errorResponse = new Gson().fromJson(new InputStreamReader((InputStream) putresp.getEntity()), new TypeToken<UploadError>() {}.getType());
+					throw new UploadException("Got RespoonseCode=" + putresp.getStatus() + ", Message=" + errorResponse.getMessage() + "\nExpected ResponseCode=200");
+				}
+			}
 		}
 	}
 
