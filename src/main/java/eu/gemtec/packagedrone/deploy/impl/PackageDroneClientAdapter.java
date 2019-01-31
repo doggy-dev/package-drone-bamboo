@@ -140,7 +140,7 @@ public class PackageDroneClientAdapter {
 		if (doc == null) {
 			return tryGetGavFromParentJar(file, filesToUpload);
 		}
-		return getGavFromPom(file, doc);
+		return getGavFromPom(doc);
 	}
 
 	/**
@@ -159,7 +159,7 @@ public class PackageDroneClientAdapter {
 		return null;
 	}
 
-	private GAV getGavFromPom(File file, Document doc) throws IOException {
+	private GAV getGavFromPom(Document doc) throws IOException {
 		Node project = doc.getElementsByTagName("project").item(0);
 		Node groupId = getChildElementWithTagName(project, "groupId");
 		Node artifactId = getChildElementWithTagName(project, "artifactId");
@@ -176,13 +176,7 @@ public class PackageDroneClientAdapter {
 		if (groupId == null || artifactId == null || version == null) {
 			throw new IOException("POM didn't contain all necessary fields");
 		}
-		String versionString;
-		if (version.getTextContent().contains("SNAPSHOT")) {
-			versionString = file.getName().substring(file.getName().indexOf('-') + 1, file.getName().length() - 4);
-		} else {
-			versionString = version.getTextContent();
-		}
-		return new GAV(groupId.getTextContent(), artifactId.getTextContent(), versionString);
+		return new GAV(groupId.getTextContent(), artifactId.getTextContent(), version.getTextContent());
 	}
 
 	@Nullable
