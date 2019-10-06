@@ -26,8 +26,8 @@
     <!-- add our i18n resource -->
     <resource type="i18n" name="eu.gemtec.packagedrone.i18n" location="eu.gemtec.packagedrone.i18n"/>
 
-    <taskType key="pdUpload" name="Upload to PackageDrone" class="eu.gemtec.packagedrone.deploy.impl.MyFirstTask">
-      <description>A task that prints 'Hello, World!'</description>
+    <taskType key="pdUpload" name="Upload to PackageDrone" class="eu.gemtec.packagedrone.deploy.impl.DeployTask">
+      <description>Deploys built artifacts to package drone</description>
       <category name="deployment"/>
       <configuration class="eu.gemtec.packagedrone.deploy.impl.UploadTaskConfigurator"/>
       <resource type="freemarker" name="edit" location="uploaderTask.ftl"/>

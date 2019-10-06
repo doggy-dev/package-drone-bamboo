@@ -13,16 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package eu.gemtec.packagedrone.deploy.impl.upload;
+package eu.gemtec.packagedrone.deploy.impl.entity;
 
 /**
- * @author Veselin Markov
+ * @author Florian Reinecke
  *
  */
-public interface Logger {
+public enum ArtifactType {
+	FEATURE,
+	BUNDLE,
+	FRAGMENT,
+	TEST_FRAGMENT,
 
-	void error(String string);
+	SOURCE_FEATURE,
+	SOURCE_BUNDLE,
+	SOURCE_FRAGMENT,
+	SOURCE_TEST_FRAGMENT,
 
-	void info(String string);
+	MAVEN_MODULE,
 
+	UNDEFINED
 }
